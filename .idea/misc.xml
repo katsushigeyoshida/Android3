@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="DesignSurface">
+    <option name="filePathToZoomLevelMap">
+      <map>
+        <entry key="..\:/WSRC/Android/AndroidStudio/MyApplication3/GameApp/src/main/res/layout/activity_mine_sweeper.xml" value="0.21333333333333335" />
+        <entry key="..\:/WSRC/Android/AndroidStudio/MyApplication3/mapapp/src/main/res/layout/activity_main.xml" value="0.24" />
+        <entry key="..\:/WSRC/Android/AndroidStudio/MyApplication3/mapapp/src/main/res/layout/activity_wiki_list.xml" value="0.21333333333333335" />
+        <entry key="..\:/WSRC/Android/AndroidStudio/MyApplication3/planetapp/src/main/res/layout/activity_main.xml" value="0.3475" />
+        <entry key="..\:/WSRC/Android/AndroidStudio/MyApplication3/tablegraph/src/main/res/layout/activity_main.xml" value="0.31" />
+        <entry key="..\:/WSRC/Android/AndroidStudio/MyApplication3/tablegraph/src/main/res/layout/activity_table_graph.xml" value="0.30416666666666664" />
+        <entry key="..\:/WSRC/Android/AndroidStudio/MyApplication3/testapp/src/main/res/layout/activity_k_draw_test.xml" value="0.25166666666666665" />
+        <entry key="..\:/WSRC/Android/AndroidStudio/MyApplication3/testapp/src/main/res/layout/activity_kotlin_test.xml" value="0.25166666666666665" />
+        <entry key="..\:/WSRC/Android/AndroidStudio/MyApplication3/testapp/src/main/res/layout/activity_main.xml" value="0.21333333333333335" />
+        <entry key="..\:/WSRC/Android/AndroidStudio/MyApplication3/testapp/src/main/res/layout/activity_service_test.xml" value="0.20416666666666666" />
+        <entry key="..\:/WSRC/Android/AndroidStudio/MyApplication3/testapp/src/main/res/layout/activity_spread_sheet.xml" value="0.33" />
+        <entry key="..\:/WSRC/Android/AndroidStudio/MyApplication3/testapp/src/main/res/layout/activity_surface_view_test.xml" value="0.29833333333333334" />
+        <entry key="..\:/WSRC/Android/AndroidStudio/MyApplication3/testapp/src/main/res/layout/activity_table_graph.xml" value="0.31" />
+        <entry key="..\:/WSRC/Android/AndroidStudio/MyApplication3/testapp/src/main/res/layout/activity_timer.xml" value="0.2633333333333333" />
+        <entry key="..\:/WSRC/Android/AndroidStudio/MyApplication3/testapp/src/main/res/layout/activity_web_file_load.xml" value="0.25666666666666665" />
+      </map>
+    </option>
+  </component>
+  <component name="ProjectRootManager" version="2" languageLevel="JDK_11" default="true" project-jdk-name="1.8" project-jdk-type="JavaSDK">
+    <output url="file://$PROJECT_DIR$/build/classes" />
+  </component>
+  <component name="ProjectType">
+    <option name="id" value="Android" />
+  </component>
+</project>
