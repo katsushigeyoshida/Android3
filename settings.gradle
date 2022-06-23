@@ -1,0 +1,6 @@
+include ':mapapp'
+include ':app', ':glgraph', ':calc2', ':calender', ':ymemo', ':mylib', ':GameApp', ':gpsinfo2', ':ytoolapp'
+rootProject.name='My Application'
+include ':testapp'
+include ':tablegraph'
+include ':planetapp'
