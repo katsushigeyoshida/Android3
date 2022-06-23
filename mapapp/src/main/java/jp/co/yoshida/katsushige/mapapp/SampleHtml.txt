@@ -1,0 +1,100 @@
+
+[https://ja.wikipedia.org/wiki/北海道・東北地方の史跡一覧]の一部
+箇条書きの入れ子状態
+
+・大館跡（おおだてあと）〔松前郡松前町〕
+・松前氏城跡（まつまえししろあと）〔松前郡松前町・檜山郡厚沢部町〕1935年6月7日
+　・福山城跡（ふくやまじょうあと）
+　・館城跡（たてじょうあと）
+松前藩主松前家墓所（まつまえはんしゅまつまえけぼしょ）〔松前郡松前町〕
+
+<li>
+  <a href="/wiki/%E5%A4%A7%E9%A4%A8%E8%B7%A1" title="大館跡">大館跡</a>
+    （おおだてあと）〔
+  <a href="/wiki/%E6%9D%BE%E5%89%8D%E9%83%A1" title="松前郡">松前郡</a>
+  <a href="/wiki/%E6%9D%BE%E5%89%8D%E7%94%BA_(%E5%8C%97%E6%B5%B7%E9%81%93)" title="松前町 (北海道)">松前町</a>
+  〕
+</li>
+<li>
+  <a href="/w/index.php?title=%E6%9D%BE%E5%89%8D%E6%B0%8F%E5%9F%8E%E8%B7%A1&amp;action=edit&amp;redlink=1" class="new" title="松前氏城跡 (存在しないページ)">松前氏城跡</a>
+  （まつまえししろあと）〔松前郡松前町・
+  <a href="/wiki/%E6%AA%9C%E5%B1%B1%E9%83%A1" title="檜山郡">檜山郡</a>
+  <a href="/wiki/%E5%8E%9A%E6%B2%A2%E9%83%A8%E7%94%BA" title="厚沢部町">厚沢部町</a>
+  〕
+  <a href="/wiki/1935%E5%B9%B4" title="1935年">1935年</a>
+  <a href="/wiki/6%E6%9C%887%E6%97%A5" title="6月7日">6月7日</a>
+  <ul>
+    <li>
+      <a href="/wiki/%E6%9D%BE%E5%89%8D%E5%9F%8E" title="松前城">福山城</a>
+      跡（ふくやまじょうあと）
+    </li>
+    <li>
+      <a href="/wiki/%E9%A4%A8%E5%9F%8E" title="館城">館城</a>
+      跡（たてじょうあと）
+    </li>
+  </ul>
+</li>
+
+
+[https://ja.wikipedia.org/wiki/国営公園] 表形式　3列目
+
+<table class="wikitable sortable" style="text-align:center">
+  <tbody>
+    <tr>
+      <th>種別</th>
+      <th><a href="/wiki/%E9%83%BD%E9%81%93%E5%BA%9C%E7%9C%8C" title="都道府県">都道府県</a></th>
+      <th>名称</th>
+      <th>開園</th>
+      <th>全体面積</th>
+      <th>画像</th>
+    </tr>
+    <tr>
+      <td>イ</td>
+      <td>
+        <a href="/wiki/%E5%8C%97%E6%B5%B7%E9%81%93" title="北海道">北海道</a>
+      </td>
+      <td>
+        <a href="/wiki/%E6%BB%9D%E9%87%8E%E3%81%99%E3%81%9A%E3%82%89%E3%82%93%E4%B8%98%E9%99%B5%E5%85%AC%E5%9C%92" title="滝野すずらん丘陵公園">国営滝野すずらん丘陵公園</a>
+      </td>
+      <td>
+        <a href="/wiki/1983%E5%B9%B4" title="1983年">1983年</a>
+        07月
+      </td>
+      <td>395.7ha</td>
+      <td>
+        <div class="floatnone">
+          <a href="/wiki/%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB:Takino_2.JPG" class="image">
+            <img alt="Takino 2.JPG" src="//upload.wikimedia.org/wikipedia/ja/thumb/7/76/Takino_2.JPG/100px-Takino_2.JPG" decoding="async" width="100" height="75" srcset="//upload.wikimedia.org/wikipedia/ja/thumb/7/76/Takino_2.JPG/150px-Takino_2.JPG 1.5x, //upload.wikimedia.org/wikipedia/ja/thumb/7/76/Takino_2.JPG/200px-Takino_2.JPG 2x" data-file-width="1600" data-file-height="1200" />
+          </a>
+        </div>
+      </td>
+    </tr>
+
+    <tr>
+      <td>イ</td>
+      <td>
+        <a href="/wiki/%E5%B2%90%E9%98%9C%E7%9C%8C" title="岐阜県">岐阜県</a>
+        <br />
+        <a href="/wiki/%E6%84%9B%E7%9F%A5%E7%9C%8C" title="愛知県">愛知県</a>
+        <br />
+        <a href="/wiki/%E4%B8%89%E9%87%8D%E7%9C%8C" title="三重県">三重県</a>
+      </td>
+      <td>
+        <a href="/wiki/%E5%9B%BD%E5%96%B6%E6%9C%A8%E6%9B%BD%E4%B8%89%E5%B7%9D%E5%85%AC%E5%9C%92" title="国営木曽三川公園">国営木曽三川公園</a>
+      </td>
+      <td>
+        <a href="/wiki/1987%E5%B9%B4" title="1987年">1987年</a>
+        10月
+      </td>
+      <td>473.5ha</td>
+      <td>
+        <div class="floatnone">
+          <a href="/wiki/%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB:Kiso_Three_Rivers_and_Kisosansen_Park.jpg" class="image">
+            <img alt="Kiso Three Rivers and Kisosansen Park.jpg" src="//upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Kiso_Three_Rivers_and_Kisosansen_Park.jpg/100px-Kiso_Three_Rivers_and_Kisosansen_Park.jpg" decoding="async" width="100" height="61" srcset="//upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Kiso_Three_Rivers_and_Kisosansen_Park.jpg/150px-Kiso_Three_Rivers_and_Kisosansen_Park.jpg 1.5x, //upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Kiso_Three_Rivers_and_Kisosansen_Park.jpg/200px-Kiso_Three_Rivers_and_Kisosansen_Park.jpg 2x" data-file-width="1922" data-file-height="1182" />
+          </a>
+        </div>
+      </td>
+    </tr>
+    
+  </tbody>
+</table>
