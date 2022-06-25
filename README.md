@@ -3,7 +3,7 @@
 ## **電卓3号(calc2)**  
 電卓アプリ  
 ・普通の電卓アプリに計算式、関数グラフ、3Dグラフ機能を持つ  
-<img src="calc2/image/calc2Main.png" width="80%">  
+<img src="calc2/image/Calc2Main.png" width="80%">  
 
 ## **遊び道具(GameApp)**  
 シンプルなゲームの寄せ集め
