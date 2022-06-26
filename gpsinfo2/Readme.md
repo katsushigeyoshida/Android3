@@ -10,7 +10,7 @@ GPS機能を使って目的地の方向や距離、GPSのトレースデータ�
 5) インストールした後は「設定」の「アプリと通知」で「あっちです」を選択し権限の「ストレージ」と「位置情報」を ON にする
 
 **起動画面**  
-<img src="image/Gpsinfo2Main.png" width="80%">  
+<img src="image/GpsInfo2Main.png" width="80%">  
 
 **GPSトレースリスト**  
 <img src="image/GpsInfo2GpsList.png" width="80%">  
