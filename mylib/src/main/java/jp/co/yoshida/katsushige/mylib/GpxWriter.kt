@@ -22,6 +22,16 @@ class GpxWriter {
      * name         track名(default: なし)
      */
     fun init(creater: String = "",name: String = "") {
+        klib.writeFileData(mFilePath, initData(creater, name))
+    }
+
+    /**
+     * GPCデータのヘッダ部作成
+     * creator      作成者
+     * name         名前
+     * return       GPX文字列データ
+     */
+    fun initData(creater: String = "",name: String = ""): String {
         // GPXヘッダ作成
         mGpxHeaderCreater = if (0 < creater.length) creater else mGpxHeaderCreater
         var buffer = "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n"
@@ -31,7 +41,7 @@ class GpxWriter {
         if (0 < name.length)
             buffer += "<name>" + name + "</name>\n"
         buffer += "<trkseg>\n"
-        klib.writeFileData(mFilePath, buffer)
+        return buffer
     }
 
     /**
@@ -39,39 +49,71 @@ class GpxWriter {
      * location     位置情報(latitude,longtude,altitude,time)
      */
     fun appendData(location: Location) {
+        klib.writeFileDataAppend(mFilePath, locationData(location))
+    }
+
+    /**
+     * 座標データのGPXデータ作成
+     * location     GPS座標データ
+     * return       GPX文字列データ
+     */
+    fun locationData(location: Location): String {
         // 位置データ
         var buffer = "<trkpt lat=\"" + location.latitude.toString() +
-                        "\" lon=\"" + location.longitude.toString() + "\">"
+                "\" lon=\"" + location.longitude.toString() + "\">"
         buffer += "<ele>" + location.altitude.toString() + "</ele>"
         buffer += "<time>" + klib.getLocationTime(location) + "</time>"
         buffer += "</trkpt>"
         buffer += "\n"
-        klib.writeFileDataAppend(mFilePath, buffer)
+        return buffer
     }
 
     /**
-     * GPXファイルの囚虜処理
+     * GPXファイルの終了処理
      */
     fun close() {
+        klib.writeFileDataAppend(mFilePath, closeData())
+    }
+
+    /**
+     * GPX終了部のデータ作成
+     * return   GPX文字列データ
+     */
+    fun closeData(): String {
         // 終了コード出力
         var buffer = "</trkseg>\n";
         buffer += "</trk>\n";
         buffer += "</gpx>";
         buffer += "\n";
-        klib.writeFileDataAppend(mFilePath, buffer)
+        return buffer
     }
 
     /**
-     * GPSデータの一括書き込み
+     * GPSデータのGPXファイル全体書き込み(append形式)
      * path         GPXファイルパス
      * locations    位置情報リスト(List<Location>)
      */
-    fun writeDataAll(path: String, locations: List<Location>) {
+    fun writeDataAppendAll(path: String, locations: List<Location>) {
         mFilePath = path
         init()
         for (location in locations) {
             appendData(location)
         }
         close()
+    }
+
+    /**
+     * GPSデータのGPXファイル一括書き込み
+     * path         GPXファイルパス
+     * locations    位置情報リスト(List<Location>)
+     */
+    fun writeDataAll(path: String, locations: List<Location>) {
+        mFilePath = path
+        var buffer = initData()
+        for (location in locations) {
+            buffer += locationData(location)
+        }
+        buffer += closeData()
+        klib.writeFileData(mFilePath, buffer)
     }
 }

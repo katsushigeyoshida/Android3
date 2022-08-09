@@ -191,7 +191,8 @@ class GpsService : Service(), SensorEventListener {
      */
     private inner class OnUpdateLocation: LocationCallback() {
         override fun onLocationResult(locationResult: LocationResult) {
-//            super.onLocationResult(p0)
+//            super.onLocationResult
+            Log.d(TAG,"OnUpdateLocation: "+mGpsCount)
             if (0 < mGpsCount++) {
                 locationResult.let {
                     val location =  it.lastLocation

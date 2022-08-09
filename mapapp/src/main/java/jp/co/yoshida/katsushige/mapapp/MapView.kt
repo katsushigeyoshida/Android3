@@ -71,9 +71,10 @@ class MapView(context: Context,var mMapData: MapData): View(context) {
         var coordeMsg = " 座標 "+"%3.6f".format(cp.y)+","+"%3.6f".format(cp.x)
         var ele = mElevator
         var type = "MAP"
-        if (mGpsTrace.mTraceOn && 0 < mGpsTrace.mGpsData.size) {
+        if (mGpsTrace.mTraceOn && 0 < mGpsTrace.mGpsPointData.size) {
             //  GPS起動時の標高データ
-            ele = mGpsTrace.mGpsData[mGpsTrace.mGpsData.size - 1].altitude  //  標高(m)
+//            ele = mGpsTrace.mGpsData[mGpsTrace.mGpsData.size - 1].altitude  //  標高(m)
+            ele = mGpsTrace.mGpsLastElevator    //  標高(m)
             type = "GPS"
         }
         coordeMsg += " 標高 " + "%,4.1f m".format(ele) + " " + type
@@ -83,12 +84,8 @@ class MapView(context: Context,var mMapData: MapData): View(context) {
         kdraw.setTextSize(32.0)
         kdraw.drawTextWithBox(coordeMsg, PointD(x.toDouble(), y.toDouble()))
 
-//        var paint = Paint()
-//        paint.color = Color.RED
-//        paint.textSize = 32f
-//        klib.drawStringWithBack(canvas, paint, coordeMsg,x, y, Color.BLUE, Color.WHITE)
         //  GPSトレース中の距離と歩数の表示
-        if (type.compareTo("GPS") == 0 && 0 < mGpsTrace.mGpsData.size) {
+        if (type.compareTo("GPS") == 0 && 0 < mGpsTrace.mGpsPointData.size) {
             var moveMsg = " 移動距離 " + "%,.2f km".format(mGpsTrace.totalDistance())
             moveMsg += " 歩数 " + mGpsTrace.stepCount().toString()
             y += 40f

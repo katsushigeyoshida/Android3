@@ -9,6 +9,7 @@ import android.util.Log
 import jp.co.yoshida.katsushige.mylib.GpxWriter
 import jp.co.yoshida.katsushige.mylib.KLib
 import jp.co.yoshida.katsushige.mylib.PointD
+import jp.co.yoshida.katsushige.mylib.RectD
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
@@ -20,11 +21,12 @@ class GpsTrace {
     val TAG = "GpsTrace"
     var mTraceOn = false
     var mSaveOn = true;
-    var mGpsxPath = ""
+    var mGpsPath = ""
     var mGpsData = mutableListOf<Location>()
+    var mGpsPointData = mutableListOf<PointD>()
+    var mGpsLastElevator = 0.0
     var mStepCount = mutableListOf<Int>()
-    var mGpsPaths = mutableListOf<String>()
-    var mGpsDatas = mutableListOf<List<Location>>()
+    var mGpsPointDatas = mutableListOf<List<PointD>>()
     var mLineColor = Color.GREEN
     var mLineColors = listOf(
         Color.BLUE, Color.CYAN, Color.MAGENTA, Color.RED, Color.YELLOW, Color.GREEN)
@@ -38,7 +40,7 @@ class GpsTrace {
     fun start(cont: Boolean = false, saveOn: Boolean = true) {
         Log.d(TAG,"start:" + mGpsData.size + " save: " + saveOn)
         if (!cont) {
-            removeGpxFile(mGpsxPath)
+            removeGpxFile(mGpsPath)
             mGpsData.clear()
         }
         mTraceOn = true
@@ -49,7 +51,7 @@ class GpsTrace {
      * GPSトレース終了
      */
     fun end() {
-        Log.d(TAG,"end:" + mGpsData.size)
+        Log.d(TAG,"end:" + mGpsData.size + " " + mGpsPointData.size)
         mTraceOn = false
     }
 
@@ -61,16 +63,16 @@ class GpsTrace {
     fun draw(canvas: Canvas, mapData: MapData) {
         if (mTraceOn && mSaveOn) {
             //  測定中のGPSデータの表示
-            draw(canvas, mapData, mGpsData, mLineColor)
+            draw(canvas, mGpsPointData, mLineColor, mapData)
         }
         //  既存GPSデータの表示
         var i = 0
-        for (gpsData in mGpsDatas)
-            draw(canvas, mapData, gpsData, mLineColors[i++ % mLineColors.size])
+        for (gpsData in mGpsPointDatas)
+            draw(canvas, gpsData, mLineColors[i++ % mLineColors.size], mapData)
     }
 
     /**
-     * GPS位置情報トレースを地図上に表示
+     * GPS位置情報トレースを地図上に表示(Locationデータ)
      * canvas           地図キャンバス
      * mapData          地図のMapData
      * traceData        GPSトレースの位置情報リスト
@@ -82,10 +84,34 @@ class GpsTrace {
             paint.color = color
             paint.strokeWidth = 6f
 
-            var sbp = PointD(traceData[0].longitude, traceData[0].latitude)
+            var sbp = PointD(traceData[0].latitude, traceData[0].longitude)
             var sp = mapData.baseMap2Screen(klib.coordinates2BaseMap(sbp))
             for (i in 1..traceData.size - 1) {
-                var ebp = PointD(traceData[i].longitude, traceData[i].latitude)
+                var ebp = PointD(traceData[i].latitude, traceData[i].longitude)
+                var ep = mapData.baseMap2Screen(klib.coordinates2BaseMap(ebp))
+                canvas.drawLine(sp.x.toFloat(), sp.y.toFloat(), ep.x.toFloat(), ep.y.toFloat(), paint)
+                sp = ep
+            }
+        }
+    }
+
+    /**
+     * GPS位置情報トレースを地図上に表示(PointDデータ)
+     * canvas           地図キャンバス
+     * traceData        GPSトレースの位置情報リスト
+     * color            線分の色
+     * mapData          地図のMapData
+     */
+    fun draw(canvas: Canvas, traceData: List<PointD>, color: Int, mapData: MapData) {
+        if (1 < traceData.size) {
+            var paint = Paint()
+            paint.color = color
+            paint.strokeWidth = 6f
+
+            var sbp = traceData[0]
+            var sp = mapData.baseMap2Screen(klib.coordinates2BaseMap(sbp))
+            for (i in 1..traceData.size - 1) {
+                var ebp = traceData[i]
                 var ep = mapData.baseMap2Screen(klib.coordinates2BaseMap(ebp))
                 canvas.drawLine(sp.x.toFloat(), sp.y.toFloat(), ep.x.toFloat(), ep.y.toFloat(), paint)
                 sp = ep
@@ -97,15 +123,15 @@ class GpsTrace {
      * GPS記録ファイルを削除
      * path     ファイル名(デフォルト:mGpxPath)
      */
-    fun removeGpxFile(path: String = mGpsxPath) {
+    fun removeGpxFile(path: String = mGpsPath) {
         klib.removeFile(path)
     }
 
     /**
-     * GPS記録データの読込(GPS Serviceで出力されたCSVファイルの読込)
+     * GPS記録データの読込(GPS Serviceで出力されたCSVファイルの読込)、Locationデータとして取り込む
      * path     ファイル名(デフォルト:mGpxPath)
      */
-    fun loadGpsData(path: String = mGpsxPath) {
+    fun loadGpsData(path: String = mGpsPath) {
         mGpsData.clear()
         mStepCount.clear()
         var listData = klib.loadCsvData(path)
@@ -129,18 +155,42 @@ class GpsTrace {
     }
 
     /**
-     * 既存データの追加
+     * GPS記録データを読込、座標データ(PointD))のみ取得
+     * path     GPSデータのCSVファイル名
+     */
+    fun loadGpsPointData(path: String = mGpsPath) {
+        mGpsPointData.clear()
+        mStepCount.clear()
+        var listData = klib.loadCsvData(path)
+        for (data in listData) {
+            if (data[0].compareTo("DateTime") != 0) {
+                var location = PointD(data[3].toDouble(), data[2].toDouble())   //  経度,緯度
+                mGpsPointData.add(location)
+                if (8 < data.size)
+                    mStepCount.add(data[8].toInt())         //  歩数
+                else
+                    mStepCount.add(0)
+            }
+        }
+        if (0 < listData.size) {
+            mGpsLastElevator = listData.last()[4].toDouble()
+        }
+    }
+
+    /**
+     * 既存データファイルの追加
      * path     ファイルパス(GPSのCSVデータ)
      */
     fun addGpsData(path: String) {
         Log.d(TAG, "addGpsData: "+path)
-        mGpsDatas.add(loadGpxData(path))
+        mGpsPointDatas.add(loadGpxPointData(path))
+//        mGpsDatas.add(loadGpxData(path))
     }
 
     /**
-     * CSV形式の位置情報ファイルの読込
+     * CSV形式の位置情報ファイルの読込Locationデータに変換
      * path     CSVファイルパス
-     * return   位置情報リスト
+     * return   位置情報リスト(List<Location>)
      */
     fun loadGpxData(path: String): List<Location> {
         var gpxData = mutableListOf<Location>()
@@ -162,11 +212,30 @@ class GpsTrace {
     }
 
     /**
+     * CSV形式の位置情報ファイルの読込PointDデータに変換
+     * path     CSVファイルパス
+     * return   位置情報リスト(List<PointD>)
+     */
+    fun loadGpxPointData(path: String = mGpsPath): List<PointD> {
+        var gpxData = mutableListOf<PointD>()
+        var listData = klib.loadCsvData(path)
+        for (data in listData) {
+            if (data[0].compareTo("DateTime") != 0) {
+                var location = PointD(data[3].toDouble(), data[2].toDouble())   //  経度,緯度
+                gpxData.add(location)
+            }
+        }
+        return gpxData;
+    }
+
+    /**
      * GPSの最新の位置を取得
      */
     fun lastPosition(): PointD {
-        Log.d(TAG,"lastPosition: "+mGpsData.size)
-        if (0 < mGpsData.size)
+        Log.d(TAG,"lastPosition: "+mGpsPointData.size)
+        if (0 < mGpsPointData.size)
+            return mGpsPointData.last()
+        else if (0 < mGpsData.size)
             return PointD(mGpsData[mGpsData.size - 1].longitude, mGpsData[mGpsData.size - 1].latitude)
         else
             return PointD()
@@ -273,13 +342,41 @@ class GpsTrace {
     }
 
     /**
+     * トレースの領域を求める
+     */
+    fun traceArea(): RectD {
+        var area = RectD()
+        if (0 < mGpsPointData.size) {
+            area = RectD(mGpsPointData[0], mGpsPointData[0])
+            for (i in 1..mGpsPointData.lastIndex) {
+                area.extension(mGpsPointData[i])
+            }
+        } else if (0 < mGpsData.size) {
+            var p0 = PointD(mGpsData[0].longitude, mGpsData[0].latitude)
+            area = RectD(p0, p0)
+            for (i in 1..mGpsData.lastIndex) {
+                var p = PointD(mGpsData[i].longitude, mGpsData[i].latitude)
+                area.extension(p)
+            }
+        }
+        return area;
+    }
+
+
+    /**
      * 累積距離(km)
      */
     fun totalDistance(): Double {
         var distance = 0.0
-        for (i in 1..(mGpsData.size - 1)) {
-            distance += klib.cordinateDistance(mGpsData[i - 1].longitude, mGpsData[i - 1].latitude,
-                mGpsData[i].longitude, mGpsData[i].latitude)
+        if (0 < mGpsPointData.size) {
+            for (i in 1..mGpsPointData.lastIndex) {
+                distance += klib.cordinateDistance(mGpsPointData[i - 1], mGpsPointData[i])
+            }
+        } else if (0 < mGpsData.size) {
+            for (i in 1..mGpsData.lastIndex) {
+                distance += klib.cordinateDistance(mGpsData[i - 1].longitude, mGpsData[i - 1].latitude,
+                    mGpsData[i].longitude, mGpsData[i].latitude)
+            }
         }
         return distance
     }
