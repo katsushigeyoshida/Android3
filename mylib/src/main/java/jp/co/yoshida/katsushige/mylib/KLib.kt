@@ -1497,6 +1497,65 @@ class KLib {
     }
 
     /**
+     * ファイルのコピー
+     * @param srcPath コピー元のパス名
+     * @param destDir コピー先フォルダー名
+     * @return
+     */
+    fun copyFile(srcPath: String, destDir: String): Boolean {
+//        Log.d(TAG, "copyFile: " + srcPath + " ," + destDir);
+        val sfile = File(srcPath)
+        return copyfile(srcPath!!, destDir + "/" + sfile.name)
+    }
+
+    /**
+     * ファイルのコピー(コピー先ファイル名の変更も可能)
+     * @param srFile コピー元のパス名
+     * @param dtFile コピー先のパス名
+     * @return
+     */
+    fun copyfile(srFile: String, dtFile: String): Boolean {
+        try {
+            val fs = File(srFile)
+            val fd = File(dtFile)
+            fs.copyTo(fd, true)
+            return true
+        } catch (e: Exception) {
+            return false
+        }
+    }
+
+    /**
+     * ファイルの移動(ディレクトリ指定)
+     * @param orgFilePath   元のファイルパス
+     * @param destDir       移動先ディレクトリ
+     * @return              実行結果
+     */
+    fun moveFile(orgFilePath: String, destDir: String): Boolean {
+        // 移動もとなるファイルパス
+        val file = File(orgFilePath)
+        val dir = File(destDir)
+        return file.renameTo(File(dir, file.name))
+    }
+
+    /**
+     * ファイル名変更
+     * @param orgFilePath   元のファイルパス
+     * @param destFilePath  移動(変更)先ファイルパス
+     * @return              実行結果
+     */
+    fun renameFile(srFile: String, dtFile: String): Boolean {
+        try {
+            val fs = File(srFile)
+            val fd = File(dtFile)
+            fs.renameTo(fd)
+            return true
+        } catch (e: Exception) {
+            return false
+        }
+    }
+
+    /**
      * ファイルのフルパスを取得
      * @param path  パス
      * @return フルパス
