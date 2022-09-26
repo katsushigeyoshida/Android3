@@ -109,6 +109,26 @@ class Point3D() {
     }
 
     /**
+     *  指定分を加えた値を返す
+     */
+    fun add(p: Point3D): Point3D {
+        this.x += p.x;
+        this.y += p.y;
+        this.z += p.z;
+        return Point3D(x, y, z)
+    }
+
+    /**
+     *  指定分を減算した値を返す
+     */
+    fun sub(p: Point3D): Point3D {
+        this.x -= p.x;
+        this.y -= p.y;
+        this.z -= p.z;
+        return Point3D(x, y, z)
+    }
+
+    /**
      * この点で表されるベクトルと指定されたベクトルの間の角度(rad)を計算
      * 原点を中心とした2点の角度(内積から角度を求める)
      * p            対象ベクトル
