@@ -35,6 +35,18 @@ class PLANETDATA {
     }
 
     /**
+     * ^jdの平均近点角を求めて惑星データを返す
+     * jd       ユリウス日
+     * return   惑星データ
+     */
+    fun getPlanetData(jd: Double = 0.0): PLANETDATA {
+        if (jd == 0.0)
+            return PLANETDATA(name, a, e, klib.R2D(i), klib.R2D(v), klib.R2D(W), klib.R2D(M0), P, TT)
+        else
+            return PLANETDATA(name, a, e, klib.R2D(i), klib.R2D(v), klib.R2D(W), klib.R2D(meanAnomary((jd))), P, TT)
+    }
+
+    /**
      * 公転周期を日に変換
      * return   公転周期(日)
      */
