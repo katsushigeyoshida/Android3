@@ -71,7 +71,7 @@ class GpsService : Service(), SensorEventListener {
 
     //  歩数カウンタ
     private var mCurrentStepNum = 0     //	現在の歩数
-    private var mStepCount = 0          //   歩数
+    private var mStepCount = 0          //  歩数
     private var mStepFlag = true        //  歩数計の可否
 
     val klib = KLib()
@@ -88,8 +88,8 @@ class GpsService : Service(), SensorEventListener {
         mLocationRequest = LocationRequest.create()
         mLocationRequest.let {
             it.interval = mIntervalTime             //  更新間隔
-            it.fastestInterval = mIntervalTime      //  最短混信間隔
-            it.priority = LocationRequest.PRIORITY_HIGH_ACCURACY    //  位置取得制度
+            it.fastestInterval = mIntervalTime      //  最短更新間隔
+            it.priority = LocationRequest.PRIORITY_HIGH_ACCURACY    //  位置取得精度
         }
         mOnUpdateLocation = OnUpdateLocation()      //  位置情報コールバックオブジェクトの生成
 
@@ -101,11 +101,10 @@ class GpsService : Service(), SensorEventListener {
         mSensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
         if (!supportedStepSensor(this)) {   //	歩数センサーの確認
             mStepFlag = false
-            Toast.makeText(this, "歩数センサーに対応していません", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "歩数センサーが対応していません", Toast.LENGTH_SHORT).show()
         }
         val sensor = mSensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
         val supportBatch = mSensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_UI)
-
     }
 
     override fun onBind(intent: Intent): IBinder? {
