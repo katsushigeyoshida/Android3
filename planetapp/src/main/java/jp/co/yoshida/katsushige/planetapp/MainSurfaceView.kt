@@ -812,6 +812,19 @@ class MainSurfaceView: SurfaceView, SurfaceHolder.Callback {
                 kdraw.drawWText(mPlanetName[i], p, 0.0,KDraw.HALIGNMENT.Left,KDraw.VALIGNMENT.Top)
             }
         }
+        //  月の表示
+        val moonEcliptic = plib.moonEclipticCoordinate(jd)      //  黄経・黄緯
+        val moonEquatorialPos = plib.ecliptic2equatorial(moonEcliptic, plib.getEpslion(jd))
+        val mp = alib.convHorizontalPoint(moonEquatorialPos, lst, localLatitude, mDirection, mRadius, full)
+        if (!mp.isEmpty()) {
+            kdraw.setProperty("Yellow", 1.0, Paint.Style.FILL)
+            kdraw.drawWCircle(mp, kdraw.cnvScreen2WorldX(magnitude2radius(2.0)))
+            kdraw.setProperty("Black", 1.0, Paint.Style.STROKE)
+            kdraw.drawWCircle(mp, kdraw.cnvScreen2WorldX(magnitude2radius(2.0)))
+            //  惑星名表示
+            kdraw.setTextProperty(mStarNameTextSize, 1.0, mStarNameColor)
+            kdraw.drawWText("月", mp, 0.0,KDraw.HALIGNMENT.Left,KDraw.VALIGNMENT.Top)
+        }
 
         kdraw.unlockCanvasAndPost()
     }
