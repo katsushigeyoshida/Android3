@@ -1034,6 +1034,25 @@ class KLib {
     }
 
     /**
+     * ユリウス日(紀元前4713年(-4712年)1月1日が0日)の取得 (https://www.dinop.com/vc/getjd.html)
+     * 年月日は西暦、時間はUTC
+     * year 年, month    月, nDay 日, nHour    時, nMin 分, nSec 秒
+     * retrun   ユリウス日
+     */
+    fun getJD(year: Int, month: Int, nDay: Int, nHour: Int = 0, nMin: Int = 0, nSec: Int = 0): Double {
+        //  ユリウス日の計算
+        var nYear = year
+        var nMonth = month
+        if (nMonth === 1 || nMonth === 2) {
+            nMonth += 12
+            nYear--
+        }
+        return ((nYear * 365.25).toInt() + (nYear / 400) -
+                (nYear / 100) + (30.59 * (nMonth - 2)).toInt() + nDay - 678912 + 2400000.5 +
+                nHour.toDouble() / 24 + nMin.toDouble() / (24 * 60) + nSec.toDouble() / (24 * 60 * 60))
+    }
+
+    /**
      * ユリウス日から日付文字列に変換
      * jd           ユリウス日
      * return       日付文字列
