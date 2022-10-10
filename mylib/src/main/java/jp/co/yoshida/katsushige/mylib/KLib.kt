@@ -33,7 +33,150 @@ import kotlin.math.*
 /**
  * 汎用ライブラリ
  *
- * ---  数値処理  ---
+ *  --- グラフィック関連  ---
+ *  color2rgb(c: Int): Int  RasterColorからRGBに変換
+ *  imageComposite(bitmap1: Bitmap, bitmap2: Bitmap): Bitmap    画像の重ね合わせ(画像合成)
+ *  imageComposite(src1ImagePath: String, src2ImagePath: String, outPath: String): String   画像の重ね合わせ(画像合成)
+ *  saveImageFile(bitmap:Bitmap, path: String, compType: Bitmap.CompressFormat = Bitmap.CompressFormat.PNG): String Bitmapデータのファイル保存
+ *  makeTransparent(bitmap: Bitmap, c: Int): Bitmap 画像の透過処理(指定色を透過にする)
+ *  ---  座標処理  ---
+ *  cordinateDistance(longi1: Double, lati1: Double, longi2: Double, lati2: Double): Double 地球上の２地点の緯度・経度を指定して最短距離
+ *  cordinateDistance(ps: PointD, pe: PointD): Double   地球上の２地点の緯度・経度を指定して最短距離
+ *  coordinates2BaseMap(cp: PointD): PointD 緯度経度座標(度)からメルカトル図法での距離
+ *  baseMap2Coordinates(bp: PointD): PointD メルカトル図法での距離から緯度経度座標(度)
+ *  string2Coordinate2(coordinate: String): PointD  日本語の座標を座標値に変換
+ *  matchCoordinate(coordinate: String): String     座標を含む文字列の検索
+ *  string2Coordinate(coordinate: String): PointD   日本語の座標を座標値に変換
+ *  ---  数値処理  ---
+ *  size2String(size: Double, unit: Double = 1000.0):String 値をK,M,Gなどのポストフィックスをつけて文字列に変換
+ *  disPoint2(ps: PointF, pe: PointF): Float    2点間の距離
+ *  ctrPoint2(ps: PointF, pe: PointF): PointF   2点間の中心座標
+ *  graphStepSize(range: Double, targetSteps: Double, base: Double = 10.0): Double  グラフ作成時の補助線間隔
+ *  graphHeightSize(height: Double, stepSize: Double): Double   グラフの最大値
+ *  log(a: Double, b: Double): Double   底指定の対数
+ *  lcm(a: Int, b: Int): Int    最小公倍数
+ *  gcd(a: Int, b: Int): Int    最大公約数
+ *  D2R(deg: Double): Double    度からラジアンに変換
+ *  R2D(rad: Double): Double    ラジアンから度に変換
+ *  mod(a: Double, b:Double): Double    剰余関数 (負数の剰余を正数で返す)
+ *  mod(a: Int, b:Int): Int     剰余関数 (負数の剰余を正数で返す)
+ *   ---  文字列処理  ---
+ *  str2Double(str: String): Double    文字列を実数に変換(後についている数値以外の文字は無視する)
+ *  str2Integer(str: String): Int  文字列を整数に変換(後についている数値以外の文字は無視する
+ *  string2StringNumbers(str: String): List<String  文字列の中から複数の数値文字列を抽出
+ *  stripUnNumberChar(str: String): String 数値以外の文字を除去
+ *  isFloat(v: String): Boolean    文字列が数値かどうかの判定
+ *  isNumber(v: String): Boolean   文字列が整数かの判定
+ *  strZne2Han(zenStr: String):String  文字列内の全角英数字を半角に変換
+ *  strNumZne2Han(zenStr: String): String  文字列内の全角数値を半角に変換
+ *  stripBrackets(text: String, sb: Char = '[', eb: Char = ']'): String 文字列から括弧で囲まれた領域を取り除く
+ *  splitCsvString(str: String): List<String>   カンマセパレータで文字列を分解
+ *  wcMatch(srcstr: String, findstr: String): Boolean   ファイル名をワイルドカードでマッチング
+ *  --  時間・日付処理  ---
+ *  getTimeType(time: String): Int  時間文字列の種類を取得
+ *  getWeekDayType(week: String): Int   週文字列の種類を取得
+ *  getNumberStringType(num: String): Int   数値文字列の種類を取得
+ *  getWeekNo(week: String): Int    曜日文字列を日曜(0)から始まる数値に変換
+ *  getDateStringType(date: String): Int    日付文字列の種類を取得
+ *  dateString2JulianDay(date: String): Int 日付文字列からユリウス日
+ *  dateStringNormalize(date: String): String   日付文字列をyyyy/mm/dd 形式に変換
+ *  dateSplit(date: String): List<String>   日付の文字列を数値文字と記号を除く文字列に分ける
+ *  JulianDay2DateYear(jdc: Int, type: Int): String ユリウス日から歴日文字列に変換
+ *  date2JulianDay(iyear: Int, imonth: Int, iday: Int): Int 歴日からユリウス日に変換
+ *  getJD(year: Int, month: Int, nDay: Int, nHour: Int = 0, nMin: Int = 0, nSec: Int = 0): Double   ユリウス日(紀元前4713年(-4712年)1月1日が0日)の取得
+ *  JulianDay2DateString(jd: Int): String       ユリウス日から日付文字列に変換
+ *  JulianDay2Date(jd: Int): Triple<Int, Int, Int>  ユリウス日から年月日を求める
+ *  JulianDay2Year(jd: Int): Int    ユリウス日から年を求める
+ *  JulianDay2Month(jd: Int): Int   ユリウス日から月を求める
+ *  JulianDay2Day(jd: Int): Int     ユリウス日から日を求める
+ *  JulianDay2WeekDay(jd: Int): Int ユリウス日から曜日Noを求める
+ *  JulianDay2WeekDayStr(jd: Int, type: Int=0): String  ユリウス日から曜日文字を求める
+ *  getLocationTime(location: Location): String?    Locationデータから日時文字列を作成
+ *  getLocationTime(location: Location, format: String?): String?   Location(位置情報)データからFormatを指定して日時文字列を取得
+ *  String.toDate(pattern: String = "yyyy/MM/dd HH:mm:ss"): Date?   指定されたフォーマットの日付文字列を日付型に変
+ *  string2Date(date: String): Date 日付文字列に日付型に変換
+ *  date2String(date: Date, format: String): String Dateをフォーマットにしたがって文字列に変換
+ *  lap2String(lapTime: Long): String   経過時間を文字列に変換
+ *  ---  ファイル処理  ---
+ *  saveCsvData(path: String, format: List<String>, data: List<List<String>>)   CSV形式でListデータを保存
+ *  saveCsvData(path: String, data: List<List<String>>) ListデータをCSV形式で保存
+ *  getCsvData(datas: List<String>): String Listデータを"で挟んだカンマセパレータ形式の文字列にする
+ *  loadCsvData(path: String, title: List<String>): List<List<String>>  CSV形式のファイルを読み込んでList<List<String>>形式にする
+ *  loadCsvData(path: String): List<List<String>>   CSV形式のファイルを読み込んでList<List<String>>形式にする
+ *  saveTextData(path: String, data: List<String>)  Listテキストデータをファイルに保存
+ *  loadTextData(path: String): List<String>    ファイルのテキストデータをListデータに取り込む
+ *  readTextFile(path: String, fileText: MutableList<String>)   テキストファイルを1行単位読み込んでListに格納
+ *  writeFileData(path: String, buffer: String) テキストデータをファイルに書き込む
+ *  writeFileDataAppend(path: String, buffer: String)   テキストデータを追加でファイルに書き込む
+ *  isDirectory(path: String): Boolean  ディレクトリかどうかの確認
+ *  mkdir(path: String): Boolean    ディレクトリの作成
+ *  existsFile(path: String): Boolean   ファイルの存在チェック
+ *  removeFile(path: String): Boolean   ファイル削除
+ *  copyFile(srcPath: String, destDir: String): Boolean ファイルのコピー
+ *  copyfile(srFile: String, dtFile: String): Boolean   ファイルのコピー(コピー先ファイル名の変更も可能)
+ *  oveFile(orgFilePath: String, destDir: String): Boolean  ファイルの移動(ディレクトリ指定)
+ *  renameFile(srFile: String, dtFile: String): Boolean ファイル名変更
+ *  getFullPath(path: String): String   ファイルのフルパスを取得
+ *  getFolder(path: String):String  ファイルの親ディレクトリを取得
+ *  getName(path: String): String   ファイル名の抽出
+ *  getFileNameWithoutExtension(path: String):String    ファイル名の取得拡張子なし
+ *  getNameExt(path: String): String    ファイル名の拡張子を取得
+ *  getPackageNameWithoutExt(context: Context): String  拡張しなしのパッケージ名の取得
+ *  getPackageNameDirectory(context: Context): String   データファイルの保存用にパッケージ名のディレクトリの作成
+ *  setSaveDirectory(subName: String): String   データ保存ディレクトリの設定
+ *  getFileList(path: String, subdir: Boolean = true, filter: String = ""): List<File>  ファイル検索してリスト化
+ *  getDirList(path: String): List<String>  ディレクトリ検索(再帰取得なし)
+ *  getDirFileList(path: String, filter: String, getDir: Boolean): List<String> ディレクトリとファイル検索(再帰取得なし)
+ *  getMimeType(path: String): String   ファイルのMIME(Multipurpose Internet Mail Extension)タイプを求める
+ *  ---  HTMLファイル  ---
+ *  cnvHtmlSpecialCode(html: String): String    TMLの特殊コードを変換
+ *
+ *  === ダイヤログ関数 ===
+ *  messageDialog(c: Context, title: String, message: String)   メッセージダイヤログ
+ *  messageDialog(c: Context, title: String, message: String, operation: Consumer<String>)  メッセージをダイヤログ
+ *  setInputDialog(c: Context, title: String, message: String, operation: Consumer<String>) 文字入力ダイヤログ
+ *  setMenuDialog(c: Context, title: String, menu: List<String>, operation: Consumer<String>)   メニュー選択ダイヤログ
+ *  setMenuIntDialog(c: Context, title: String, menu: List<String>, operation: Consumer<Int>)   メニュー選択ダイヤログ
+ *  setChkMenuDialog(c: Context, title: String, menu: Array<String>, chkItems: BooleanArray, operation: Consumer<BooleanArray>) チェックボックス付きリスト選択ダイヤログ
+ *  fileSelectDialog(c: Context, dir: String, filter: String, getDir: Boolean, path: Consumer<String>)  ファイル選択ダイヤログ
+ *  saveFileSelectDialog(c: Context, dir: String, filter: String, getDir: Boolean, path: Consumer<String>)  保存ファイル名選択ダイヤログ
+ *  folderSelectDialog(c: Context, dir: String, operation: Consumer<String>)    フォルダ選択ダイヤログ
+ *  showDatePicker(c: Context, dateTime: LocalDateTime, operation: Consumer<LocalDateTime>) 日付設定ダイヤログ
+ *  showTimePicker(c: Context, dateTime: LocalDateTime, operation: Consumer<LocalDateTime>) 日付設定ダイヤログ
+ *  ====  行列計算  ====
+ *  unitMatrix(unit: Int): Array<Array<Double>>     単位行列の作成(正方行列のみ)
+ *  createMatrix(row: Int, col: Int): Array<Array<Double>>  row x col の行列作成
+ *  copyMatrix(A: Array<Array<Double>>): Array<Array<Double>>   マトリックスを複製
+ *  matrixTranspos(A: Array<Array<Double>>): Array<Array<Double>>   転置行列  行列Aの転置A^T
+ *  matrixMulti(A: Array<Array<Double>>, B: Array<Array<Double>>): Array<Array<Double>> 行列の積  AxB
+ *  matrixAdd(A: Array<Array<Double>>, B: Array<Array<Double>>): Array<Array<Double>>   行列の和 A+B
+ *  matrixInverse(A: Array<Array<Double>>): Array<Array<Double>>    逆行列 A^-1
+ *  === システム関連 ===
+ *  beep(dura: Int)     ビープ音を鳴らす
+ *  setTextClipBoard(c: Context, text: String)  クリップボードにテキストをコピー
+ *  etTextClipBoard(c: Context): String     クリップボードからテキストを取り出す
+ *  webDisp(c: Context, url: String?)   URLのWeb表示をする
+ *  executeFile(c: Context, path: String)   ローカルファイルを関連付けで開く
+ *  checkStragePermission(c: Context?): Boolean     strage permissionの確認
+ *  checkGpsPermission(c: Context?): Boolean        GPS permissionの確認
+ *  isServiceRunning(c: Context, cls: Class<*>): Boolean    サービスの起動状態の確認
+ *  getBoolPreferences(key: String, context: Context): Boolean  プリファレンスから論理値を取得
+ *  getBoolPreferences(key: String, default: Boolean, context: Context): Boolean   プリファレンスから論理値を取得
+ *  setBoolPreferences(value: Boolean?, key: String?, context: Context?)    プリファレンスに論理値を設定
+ *  getStrPreferences(key: String?, context: Context?): String? プリファレンスから文字列の値を取得
+ *  getStrPreferences(key: String?, default: String, context: Context?): String?    プリファレンスから文字列の値を取得
+ *  setStrPreferences(value: String?, key: String?, context: Context?)  プリファレンスに文字列を設定
+ *  getIntPreferences(key: String?, context: Context?): Int  プリファレンスから数値(int)を取得
+ *  getIntPreferences(key: String?, default: Int, context: Context?): Int   プリファレンスから数値(int)を取得
+ *  setIntPreferences(value: Int, key: String?, context: Context?)  プリファレンスに数値(int)を設定
+ *  getLongPreferences(key: String?, context: Context?): Long   プリファレンスから数値(long)を取得
+ *  getLongPreferences(key: String?, default: Long, context: Context?): Long    プリファレンスから数値(long)を取得
+ *  setLongPreferences(value: Long, key: String?, context: Context?)    プリファレンスに数値(long)を設定
+ *  getFloatPreferences(key: String?, context: Context?): Float プリファレンスから数値(float)を取得
+ *  getFloatPreferences(key: String?, default: Float, context: Context?): Float プリファレンスから数値(float)を取得
+ *  setFloatPreferences(value: Float, key: String?, context: Context?)  プリファレンスに数値(float)を設定
+ *  ========  その他  ==========
+ *  <T> transpose(list: List<List<T>>)  二次元リストの行と列を入れ替える
  *
  */
 
@@ -52,39 +195,104 @@ class KLib {
             "LightGray" to Color.LTGRAY, "Magenta" to Color.MAGENTA, "DarkGray" to Color.DKGRAY, "Transparent" to Color.TRANSPARENT
     )
 
-    //  ---  数値処理  ---
-
     /**
-     * 数値をK,M,Gなどのポストフィックスをつけて文字列に変換する(有効桁は3桁)
-     * 2進をペーストする場合はunitに1024を指定する
-     * size         容量などの数値
-     * unit         K,M,Gなどの単位(default: 1000
-     * return       ポストフィックス付き文字列
+     * RasterColorからRGBに変換
+     * c        RasterColor(getPixelの値)
+     * return   RGB値(0x00RRGGBB)
      */
-    fun size2String(size: Double, unit: Double = 1000.0):String {
-        val postfix = listOf<String>("", "K", "M", "G", "T", "P", "E")
-        val n = floor(log(size, unit))
-        var b = size / Math.pow(unit, n)
-        val m = Math.pow(10.0, 2.0 - Math.floor(Math.log10(b)))
-        b = Math.round(b * m) / m	//	四捨五入
-        return b.toString().trimEnd('0').trimEnd('.') + postfix[n.toInt()]
+    fun color2rgb(c: Int): Int {
+        val rgb =  Color.red(c) * 0x10000 + Color.green(c) * 0x100 + Color.blue(c)
+        return rgb
     }
 
     /**
-     * 2点間の距離を求める
+     * 画像の重ね合わせ(画像合成)
+     * bitmap1      ベースになる画像
+     * bitmap2      重ねる画像
+     * retutn       合成画像
      */
-    fun disPoint2(ps: PointF, pe: PointF): Float {
-        val dx = (ps.x - pe.x).toDouble()
-        val dy = (ps.y - pe.y).toDouble()
-        return Math.sqrt(dx * dx + dy * dy).toFloat()
+    fun imageComposite(bitmap1: Bitmap, bitmap2: Bitmap): Bitmap {
+        val output = Bitmap.createBitmap(bitmap1.width, bitmap1.height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(output)
+        canvas.drawBitmap(bitmap1, 0f, 0f, null)
+        canvas.drawBitmap(bitmap2, 0f, 0f, null)
+        return output
     }
 
     /**
-     * 2点間の中心座標を求める
+     * 画像ファイルを重ね合わせ(画像合成)てPNGファイル保存
+     * src1ImagePath    ベースになる画像ファイル名
+     * src2ImagePath    上に重ねる画像ファイル名
+     * outPath          合成画像ファイル名
+     * transparent      透過色(RGB)
+     * return           出力画像ファイル名(失敗した時は空名)
      */
-    fun ctrPoint2(ps: PointF, pe: PointF): PointF {
-        return PointF((ps.x - pe.x) / 2.0f, (ps.y - pe.y) / 2.0f)
+    fun imageComposite(src1ImagePath: String, src2ImagePath: String, outPath: String, transparent: Int = 0): String {
+        var bitmap1: Bitmap? = null
+        var bitmap2: Bitmap? = null
+        var output: Bitmap? = null
+        if (existsFile(src1ImagePath))
+            bitmap1 = BitmapFactory.decodeFile(src1ImagePath)
+        if (existsFile(src2ImagePath))
+            bitmap2 = BitmapFactory.decodeFile(src2ImagePath)
+        if (bitmap1 != null && bitmap2 !=null) {
+            if (transparent != 0)
+                bitmap2 = makeTransparent(bitmap2,  transparent)
+            output = imageComposite(bitmap1, bitmap2)
+        } else if (bitmap1 != null && bitmap2 == null)
+            output = bitmap1
+        else if (bitmap1 == null && bitmap2 != null)
+            output = bitmap2
+        else
+            return ""
+        return saveImageFile(output, outPath)
     }
+
+    /**
+     * Bitmapデータのファイル保存
+     * bitmap       Bitmapデータ
+     * path         保存ファイル名
+     * compType     保存形式(PNG/JPEG)デフォルトはPNG
+     */
+    fun saveImageFile(bitmap:Bitmap, path: String, compType: Bitmap.CompressFormat = Bitmap.CompressFormat.PNG): String {
+        Log.d(TAG,"saveImageFile: " + path)
+        try {
+            val fos = FileOutputStream(File(path))
+            bitmap.compress(compType, 100, fos)
+            fos.close()
+            return path
+        } catch (e: Exception) {
+            Log.d(TAG, "saveImageFile: " + e.message)
+            return ""
+        }
+    }
+
+    /**
+     * 画像の透過処理(指定色を透過にする)
+     * bitmap       画像データ
+     * c            透過にする色(RGB 0xRRGGBB)
+     * return       透過処理をした画像データ
+     */
+    fun makeTransparent(bitmap: Bitmap, c: Int): Bitmap {
+        Log.d(TAG, "transparent Color: " + c.toString(16))
+        val width = bitmap.width
+        val height = bitmap.height
+        val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        var pixels = IntArray(width * height)
+        bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
+        for (y in 0 until height) {
+            for (x in 0 until width) {
+                if (color2rgb(pixels[x + y * width]) == c) {
+                    pixels[x + y * width] = 0
+                }
+            }
+        }
+        output.eraseColor(Color.argb(0, 0, 0, 0))
+        output.setPixels(pixels, 0, width, 0, 0, width, height)
+        return output
+    }
+
+    //  ---  座標処理  ---
 
     /**	地球上の２地点の緯度・経度を指定して最短距離とその方位角を計算
      *	地球を赤道半径r=6378.137kmを半径とする球体として計算しています。
@@ -269,6 +477,40 @@ class KLib {
         return PointD(longi, lati)
     }
 
+    //  ---  数値処理  ---
+
+    /**
+     * 数値をK,M,Gなどのポストフィックスをつけて文字列に変換する(有効桁は3桁)
+     * 2進をペーストする場合はunitに1024を指定する
+     * size         容量などの数値
+     * unit         K,M,Gなどの単位(default: 1000
+     * return       ポストフィックス付き文字列
+     */
+    fun size2String(size: Double, unit: Double = 1000.0):String {
+        val postfix = listOf<String>("", "K", "M", "G", "T", "P", "E")
+        val n = floor(log(size, unit))
+        var b = size / Math.pow(unit, n)
+        val m = Math.pow(10.0, 2.0 - Math.floor(Math.log10(b)))
+        b = Math.round(b * m) / m	//	四捨五入
+        return b.toString().trimEnd('0').trimEnd('.') + postfix[n.toInt()]
+    }
+
+    /**
+     * 2点間の距離を求める
+     */
+    fun disPoint2(ps: PointF, pe: PointF): Float {
+        val dx = (ps.x - pe.x).toDouble()
+        val dy = (ps.y - pe.y).toDouble()
+        return Math.sqrt(dx * dx + dy * dy).toFloat()
+    }
+
+    /**
+     * 2点間の中心座標を求める
+     */
+    fun ctrPoint2(ps: PointF, pe: PointF): PointF {
+        return PointF((ps.x - pe.x) / 2.0f, (ps.y - pe.y) / 2.0f)
+    }
+
     /**
      *  グラフ作成時の補助線間隔を求める
      *  補助線の間隔は1,2,5の倍数
@@ -391,13 +633,43 @@ class KLib {
 
     /**
      * 文字列を整数に変換(後についている数値以外の文字は無視する
-     * 文字列が数値でない場合は0を返す
+     * 先頭に0xがある場合は16進変換、文字列が数値でない場合は0を返す
      * @param str   文字列
      * @return      整数値
      */
     fun str2Integer(str: String): Int {
-        var numStr = stripUnNumberChar(str)
-        return if (isNumber(numStr)) numStr.toInt() else 0
+        try {
+            if (str.trim().substring(0,2).compareTo("0x") == 0) {
+                return Integer.decode(str.trim())
+            } else {
+                var numStr = stripUnNumberChar(str.trim())
+                return if (isNumber(numStr)) numStr.toInt() else 0
+            }
+        } catch (e: Exception) {
+            return 0
+        }
+    }
+
+    /**
+     * 文字列の中から複数の数値文字列を抽出する
+     * str          文字列
+     * return       数値文字列リスト
+     */
+    fun string2StringNumbers(str: String): List<String> {
+        var data = mutableListOf<String>()
+        var buf = ""
+        for (i in str.indices) {
+            val n = HanNumCode.indexOf(str[i])
+            if (0 <= n) {
+                buf += str[i]
+            } else {
+                data.add(buf)
+                buf = ""
+            }
+        }
+        if (0 < buf.length)
+            data.add(buf)
+        return data
     }
 
 
@@ -1830,11 +2102,9 @@ class KLib {
     /**
      * メッセージをダイヤログ表示し、OKの時に指定の関数にメッセージの内容を渡して処理するを処理する
      * 関数インターフェースの例
-     *  Consumer<String> iDelListOperation = new Consumer<String>() {
-     *      @Override public void accept(String s) {
-     *          mDataMap.remove(s);                     //  ダイヤログで指定された文字列をリストから削除
-     *      }
-     *  };
+     *  var iDelListOperation = new Consumer<String> { s ->
+     *      mDataMap.remove(s)      //  ダイヤログで指定された文字列をリストから削除
+     *  }
      * 関数の呼び出し方法
      *      ylib.messageDialog(mC, "計算式の削除",mTitleBuf, iDelListOperation);
      * c            コンテキスト
@@ -1848,6 +2118,38 @@ class KLib {
             .setMessage(message)
             .setPositiveButton( "OK") {
                     dialog, which -> operation.accept(message)
+            }
+            .setNegativeButton( "Cancel") {
+                    dialog, which ->
+            }
+            .show()
+    }
+
+    /**
+     * メッセージをダイヤログ表示し、OK/No/Cancelのどれかを指定の関数にメッセージを渡す
+     * 関数インターフェースの例
+     *  var iResultOperation = Consumer<String> { s ->
+     *      if (s.compareTo("OK") == 0) {
+     *      } else if (s.compareTo("No") == 0) {
+     *      } else {
+     *      }
+     *  }
+     * 関数の呼び出し方法
+     *      ylib.messageDialog(mC, "計算式の削除",mTitleBuf, iDelListOperation);
+     * c            コンテキスト
+     * title        ダイヤログのタイトル
+     * message      メッセージ
+     * operation    処理する関数インタフェース
+     */
+    fun messageDialog2(c: Context, title: String, message: String, operation: Consumer<String>) {
+        AlertDialog.Builder(c)
+            .setTitle(title)
+            .setMessage(message)
+            .setPositiveButton( "OK") {
+                    dialog, which -> operation.accept("OK")
+            }
+            .setNeutralButton("No") {
+                    dialog, which -> operation.accept("No")
             }
             .setNegativeButton( "Cancel") {
                     dialog, which ->
