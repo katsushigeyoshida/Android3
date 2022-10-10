@@ -24,6 +24,7 @@ class MapView(context: Context,var mMapData: MapData): View(context) {
     var mGpsTrace = GpsTrace()              //  GPSトレース実行中のデータ
     var mGpsDataList = GpsDataList()        //  GPSデータ
     var mElevator = 0.0                     //  標高値(Mainから設定)
+    var mColor = ""
     var mComment = ""
 
     var klib = KLib()
@@ -73,11 +74,10 @@ class MapView(context: Context,var mMapData: MapData): View(context) {
         var type = "MAP"
         if (mGpsTrace.mTraceOn && 0 < mGpsTrace.mGpsPointData.size) {
             //  GPS起動時の標高データ
-//            ele = mGpsTrace.mGpsData[mGpsTrace.mGpsData.size - 1].altitude  //  標高(m)
             ele = mGpsTrace.mGpsLastElevator    //  標高(m)
             type = "GPS"
         }
-        coordeMsg += " 標高 " + "%,4.1f m".format(ele) + " " + type
+        coordeMsg += " 標高 " + "%,4.1f m".format(ele) + "(" + type + ") 色 " + mColor
 
         kdraw.mCanvas = canvas
         kdraw.setColor("Blue")
@@ -90,13 +90,11 @@ class MapView(context: Context,var mMapData: MapData): View(context) {
             moveMsg += " 歩数 " + mGpsTrace.stepCount().toString()
             y += 40f
             kdraw.drawTextWithBox(moveMsg, PointD(x.toDouble(), y.toDouble()))
-//            klib.drawStringWithBack(canvas, paint, moveMsg,x, y, Color.BLUE, Color.WHITE)
         }
-        //  地質図の地質説明を表示
+        //  色凡例を表示
         if (0 < mComment.length) {
             y += 40f
             kdraw.drawTextWithBox(mComment, PointD(x.toDouble(), y.toDouble()))
-//            klib.drawStringWithBack(canvas, paint, mComment,x, y, Color.BLUE, Color.WHITE)
         }
     }
 

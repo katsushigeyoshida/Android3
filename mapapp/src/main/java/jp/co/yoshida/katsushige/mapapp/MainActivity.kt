@@ -44,7 +44,6 @@ class MainActivity : AppCompatActivity() {
     var mGpsTraceFileFolder = "GpsTraceData"        //  GPSトレースデータの保存フォルダ名
     var mSelectMark = -1                            //  選択マークデータMo
     var mElevatorDataNo = 0                         //  標高データの種類(0: dem5a,1: dem5b,
-    val mSeamLesLegend = mutableMapOf<String, List<String>>()   //  地質図の凡例データ
 
     val MENU00 = 0
     val MENU01 = 1
@@ -60,6 +59,7 @@ class MainActivity : AppCompatActivity() {
     val MENU11 = 11
 
     val REQUESTCODE_WIKI = 1
+    val REQUESTCODE_MAPINFDATA = 2
 
     //  オプションサブメニュー(画面登録)
     val mMapDispMenu = listOf(
@@ -100,7 +100,7 @@ class MainActivity : AppCompatActivity() {
     lateinit var mMapView: MapView                  //  表示Viewクラス
     var mMapViewTop = 310                           //  ViewのTOP位置(マウス位置のオフセット)
     var mMapInfoData = MapInfoData()                //  地図のデータ情報
-    var mMapData = MapData(this, mMapInfoData)  //  地図のパラメータクラス
+    var mMapData = MapData(this, mMapInfoData)      //  地図のパラメータクラス
     var mAreaData = AreaData()                      //  画面登録クラス
     var mMarkList = MarkList()                      //  マークリストクラス
     var mMeasure = Measure()                        //  距離測定クラス
@@ -109,7 +109,9 @@ class MainActivity : AppCompatActivity() {
 
     val handler = Handler(Looper.getMainLooper())   //  Handlerw@でUIを制御
     val mGpsInterval = 5000L                        //  GPSトレース表示のインターバル(ms)
-    var mTempFileNameList = mutableListOf<String>() //  データ受け渡し用の一時ファイルリスト
+//    var mTempFileNameList = mutableListOf<String>() //  データ受け渡し用の一時ファイルリスト
+    var mDataFolder = ""                            //  データ保存ディレクトリ
+    var mMapInfoDataPath = "MapDataList.csv"        //  地図データリストファイル名
 
     val mAppTitle = "こんな地図"
     var klib = KLib()
@@ -168,6 +170,10 @@ class MainActivity : AppCompatActivity() {
         spZoomLevel = binding.spZoomLevel
         spMapType =binding.spMapType
 
+        mDataFolder = klib.getPackageNameDirectory(this)
+        mMapInfoDataPath = mDataFolder + "/" + mMapInfoDataPath
+        mMapInfoData.loadMapInfoData(mMapInfoDataPath)  //  地図データリストの読込
+
         init()                                  //  コントロールなどの初期化
 
         //  地図データの初期化
@@ -175,13 +181,11 @@ class MainActivity : AppCompatActivity() {
         mMapView.mMarkList = mMarkList          //  マークリストデータの設定
         mMapView.mMeasure = mMeasure            //  距離測定データの設定
         mMapView.mGpsDataList = mGpsDataList    //  GPSデータの表示設定
+        mMapData.mDataFolder = mDataFolder      //  データファイルフォルダ設定
         mMapData.loadParameter()                //  パラメータの読み込み
         setParameter()
         setViewParameter()
         title = mAppTitle + " [" + mMapInfoData.mMapData[mMapData.mMapTitleNum][0] + "]"
-
-        //  地質図 (20万分の1日本シームレス地質図V2) 凡例データ取得
-        loadSeamlessLegend(klib.getPackageNameDirectory(this) + "/legend.csv")
 
         //  ダウンロードのモードを引き継ぐ
         var downloadMode = klib.getStrPreferences("WebFileDownLoadMode", this).toString()
@@ -222,12 +226,13 @@ class MainActivity : AppCompatActivity() {
             }
         }
         //  データの保存
-        mMapData.saveParameter()                //  地図パラメータの保存
+        mMapInfoData.saveMaoInfoData(mMapInfoDataPath)  //  地図データリストの保存
+        mMapData.saveParameter()                        //  地図パラメータの保存
         klib.setStrPreferences(mMapDataDownLoadMode.name, "WebFileDownLoadMode", this)
-        saveImageFileSet(mImageFileSetPath)     //  ダウンロードファイルリストの保存
-        mAreaData.saveAreaDataList()            //  登録画面リストの保存
+        mMapData.saveImageFileSet(mImageFileSetPath)    //  ダウンロードファイルリストの保存
+        mAreaData.saveAreaDataList()                    //  登録画面リストの保存
         mMarkList.saveMarkFile(this)            //  マークリストの保存
-        mGpsDataList.saveDataFile(this)         //  GPSデータリストの保存
+        mGpsDataList.saveDataFile(this)             //  GPSデータリストの保存
 
         super.onStop()
     }
@@ -345,6 +350,14 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             }
+            REQUESTCODE_MAPINFDATA -> {
+                Log.d(TAG, "onActivityResult: MAPINFODATA " + resultCode)
+                if (resultCode == RESULT_OK) {
+                    //  地図データリストの再読込
+                    mMapInfoData.loadMapInfoData(mMapInfoDataPath)
+                    spSetMapInfoData()
+                }
+            }
         }
     }
 
@@ -368,6 +381,8 @@ class MainActivity : AppCompatActivity() {
         item8.setIcon(android.R.drawable.ic_menu_set_as)
         val item9 = menu.add(Menu.NONE, MENU09, Menu.NONE, "オンラインの切替")
         item9.setIcon(android.R.drawable.ic_menu_set_as)
+        val item2 = menu.add(Menu.NONE, MENU02, Menu.NONE, "地図データ編集")
+        item2.setIcon(android.R.drawable.ic_menu_set_as)
         val item10 = menu.add(Menu.NONE, MENU10, Menu.NONE, "アプリ情報")
         item10.setIcon(android.R.drawable.ic_menu_set_as)
         return super.onCreateOptionsMenu(menu)
@@ -403,6 +418,9 @@ class MainActivity : AppCompatActivity() {
             MENU01 -> {     //  登録画面
                 areaDataOptionMenu()
             }
+            MENU02 -> {      //  地図データ編集
+                setMapInfoData()
+            }
             MENU05 -> {     //  GPXデータ サブメニュー
                 gpxTraceMenu()
             }
@@ -419,10 +437,10 @@ class MainActivity : AppCompatActivity() {
                 mMapDataDownLoadMode = if (mMapDataDownLoadMode == WebFileDownLoad.OFFLINE) WebFileDownLoad.NORMAL
                 else WebFileDownLoad.OFFLINE
             }
-            MENU10 ->{      //  アプリ情報
+            MENU10 -> {      //  アプリ情報
                 dispAplInf()
             }
-            MENU11 ->{      //  トレースデータメニュー
+            MENU11 -> {      //  トレースデータメニュー
                 gpsTraceMenu()
             }
         }
@@ -510,7 +528,9 @@ class MainActivity : AppCompatActivity() {
         val extStrageDir = Environment.getExternalStorageDirectory()
         mBaseFolder = extStrageDir.absolutePath + "/" + Environment.DIRECTORY_DCIM + "/gsiMap/"
         mImageFileSetPath = mBaseFolder + mImageFileSetPath
-        loadImageFileSet(mImageFileSetPath)
+//        loadImageFileSet(mImageFileSetPath)
+        mMapData.mBaseFolder = mBaseFolder
+        mMapData.loadImageFileSet(mImageFileSetPath)
 
         //  位置画面データの読み込みと保存先フォルダ設定
         val mapAreaDataListFolder = klib.getPackageNameDirectory(this)
@@ -522,7 +542,6 @@ class MainActivity : AppCompatActivity() {
         mMarkList.loadMarkFile(this)
         mMarkList.setGroupDispList()
         setMarkButton()
-        Log.d(TAG, "init: " + mMarkList.mMarkList.size)
 
         //  GPSデータリストの読込
         mGpsDataList.mSaveFilePath = mapAreaDataListFolder + "/" + mGpxDataListPath
@@ -532,11 +551,7 @@ class MainActivity : AppCompatActivity() {
         mMapData.mView = Size(getWindowWidth(), getWindowHeight() - 406)
 
         //  地図タイトルのspinner設定
-        var mapTitle = mutableListOf<String>()
-        for (i in 0..mMapInfoData.mMapData.count()-1)
-            mapTitle.add(mMapInfoData.mMapData[i][0])
-        var mapTitleAdapter = ArrayAdapter(this, R.layout.support_simple_spinner_dropdown_item, mapTitle)
-        spMapType.adapter = mapTitleAdapter
+        spSetMapInfoData()
         spMapType.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>, view: View, position: Int, id: Long) {
                 if (mMapData.mMapTitleNum != position) {
@@ -642,6 +657,17 @@ class MainActivity : AppCompatActivity() {
             setMarkButton()
             mapDisp(mMapDataDownLoadMode)
         }
+    }
+
+    /**
+     * 地図データのタイトルをSpnnerに設定
+     */
+    fun spSetMapInfoData() {
+        var mapTitle = mutableListOf<String>()
+        for (i in mMapInfoData.mMapData.indices)
+            mapTitle.add(mMapInfoData.mMapData[i][0])
+        var mapTitleAdapter = ArrayAdapter(this, R.layout.support_simple_spinner_dropdown_item, mapTitle)
+        spMapType.adapter = mapTitleAdapter
     }
 
     /**
@@ -755,16 +781,15 @@ class MainActivity : AppCompatActivity() {
         //  Webから地図イメージデータを取得
         webFileLoad(mMapData, fileUpdate)
         mMapView.mElevator = getMapElevator(mMapData, mMapData.getMapCenter())
-//        Log.d(TAG, "mapDataSet: Ele " + mMapView.mElevator)
-        //  地質図(20万分の1日本シームレス地質図V2)の凡例データから取得した地質説明を表示
+        //  中心のカラーデータ
+        var rgb = getMapPixelColor(mMapData, mMapData.getMapCenter())
+        mMapView.mColor = rgb.uppercase()
         mMapView.mComment = ""
-        if (mMapData.mMapTitle.compareTo("seamless_v2") == 0) {
-            var rgb = getMapPixelColor(mMapData, mMapData.getMapCenter())
-            if (mSeamLesLegend.containsKey(rgb)) {
-                var data = mSeamLesLegend[rgb]
-                if (data != null)
-                    mMapView.mComment = "[" + data[1] + "]" + data[0]
-            }
+        if (0 < mMapData.mColorLegend.size) {
+            //  色凡例
+            var data = mMapData.getColorLegend(rgb)
+            if (0 < data.length)
+                mMapView.mComment = data
         }
     }
 
@@ -820,27 +845,18 @@ class MainActivity : AppCompatActivity() {
      *                                    OFFLINE: ファイルの有無にかかわらずダウンロードなし
      */
     fun webFileLoad(mapData: MapData, fileUdate: WebFileDownLoad) {
+        mElevatorDataNo = mapData.mElevatorDataNo
+        val eleZoomMax = mapData.mMapInfoData.getElevatorMaxZoom(mElevatorDataNo)
         for (i in mapData.mStart.x.toInt()..mapData.mStart.x.toInt()+mapData.mColCount) {
             for (j in mapData.mStart.y.toInt()..mapData.mStart.y.toInt()+mapData.mRowCount) {
                 if (i <= Math.pow(2.0, mapData.mZoom.toDouble()) &&
                         j <= Math.pow(2.0, mapData.mZoom.toDouble())) {
                     //  標高データのダウンロード
-                    var eleZoomMax = mapData.mMapInfoData.mMapElvatorData[mElevatorDataNo][4].toInt()
-                    if (eleZoomMax < mapData.mZoom) {
-                        //  標高データはズームレベル15(DEM5)までなのでそれ以上は15のデータを取得
-                        var pos = mapData.cnvMapPositionZoom(eleZoomMax, PointD(i, j))
-                        mapFileDownLoad(mapData.mMapInfoData.mMapElvatorData[mElevatorDataNo][7],
-                            mapData.mMapInfoData.mMapElvatorData[mElevatorDataNo][1], 15, pos.x.toInt(), pos.y.toInt(),
-                            mapData.mMapInfoData.mMapElvatorData[mElevatorDataNo][2], fileUdate)
-                    } else {
-                        mapFileDownLoad(mapData.mMapInfoData.mMapElvatorData[mElevatorDataNo][7],
-                            mapData.mMapInfoData.mMapElvatorData[mElevatorDataNo][1], mapData.mZoom, i, j,
-                            mapData.mMapInfoData.mMapElvatorData[mElevatorDataNo][2], fileUdate)
-                    }
+                    mMapData.getElevatorDataFile(i, j, fileUdate)
                     //  地図ファイルのダウンロード
-                    var downLoadFile =  mapFileDownLoad(mapData.mUrl, mapData.mMapTitle, mapData.mZoom, i, j, mapData.mExt, fileUdate)
-                    if (downLoadFile.exists())
-                        mMapView.setCellImage(i - mapData.mStart.x.toInt(), j - mapData.mStart.y.toInt(), downLoadFile.path)
+                    var downLoadFile = mMapData.getMapData(i, j, fileUdate)
+                    if (klib.existsFile((downLoadFile)))
+                        mMapView.setCellImage(i - mapData.mStart.x.toInt(), j - mapData.mStart.y.toInt(), downLoadFile)
                     else
                         mMapView.setCellImage(i - mapData.mStart.x.toInt(), j - mapData.mStart.y.toInt(), "")   //  ダミー
                 }
@@ -901,9 +917,12 @@ class MainActivity : AppCompatActivity() {
         var mapUrl = mapOrgUrl.replace("{z}", zoom.toString())
         mapUrl = mapUrl.replace("{x}", x.toString())
         mapUrl = mapUrl.replace("{y}", y.toString())
+        return mapFileDownLoad(mapUrl, dataUrl, fileUdate)
+    }
+
+    fun mapFileDownLoad(mapUrl: String, dataUrl: String, fileUdate: WebFileDownLoad): File {
         //  保存フォルダ
         var downLoadFile = File(mBaseFolder + dataUrl)
-//        Log.d(TAG,"mapFileDownLoad: "+downLoadFile)
         if ((fileUdate == WebFileDownLoad.ALLUPDATE || !downLoadFile.exists()) && fileUdate != WebFileDownLoad.OFFLINE) {
             if (fileUdate != WebFileDownLoad.NORMAL || !mImageFileSet.contains(dataUrl)) {
                 var downLoad = DownLoadWebFile(mapUrl, downLoadFile.path)
@@ -950,16 +969,16 @@ class MainActivity : AppCompatActivity() {
     fun getMapElevator(mapData: MapData, mp: PointD):Double {
         var zoom = mapData.mZoom
         var cmp = mp;
-        var eleZoomMax = mapData.mMapInfoData.mMapElvatorData[mElevatorDataNo][4].toInt()
-        Log.d(TAG, "getMapElevator: " + mapData.mMapInfoData.mMapElvatorData[mElevatorDataNo][4] + " " + eleZoomMax)
+        var eleZoomMax = mapData.mMapInfoData.getElevatorMaxZoom(mElevatorDataNo)
+        Log.d(TAG, "getMapElevator: " + mapData.mMapInfoData.mMapElevatorData[mElevatorDataNo][4] + " " + eleZoomMax)
         if (eleZoomMax < mapData.mZoom) {
             //  標高データはズームレベル15(DEM5)までなのでそれ以上は15のデータを取得
             cmp = mapData.cnvMapPositionZoom(eleZoomMax, mp);
             zoom = eleZoomMax
         }
-        var downloadPath = mapFileDownLoad(mapData.mMapInfoData.mMapElvatorData[mElevatorDataNo][7],
-            mapData.mMapInfoData.mMapElvatorData[mElevatorDataNo][1], zoom, cmp.x.toInt(), cmp.y.toInt(),
-            mapData.mMapInfoData.mMapElvatorData[mElevatorDataNo][2], WebFileDownLoad.NORMAL)
+        var downloadPath = mapFileDownLoad(mapData.mMapInfoData.mMapElevatorData[mElevatorDataNo][7],
+            mapData.mMapInfoData.mMapElevatorData[mElevatorDataNo][1], zoom, cmp.x.toInt(), cmp.y.toInt(),
+            mapData.mMapInfoData.mMapElevatorData[mElevatorDataNo][2], WebFileDownLoad.NORMAL)
         return  getMapElevatorFile(downloadPath.path, (256.0 * (cmp.x % 1.0)).toInt(), (256.0 * (cmp.y % 1.0)).toInt())
     }
 
@@ -1092,6 +1111,14 @@ class MainActivity : AppCompatActivity() {
                 mapDisp(mMapDataDownLoadMode)
             }
         }
+    }
+
+    /**
+     * 地図データ情報の設定
+     */
+    fun setMapInfoData() {
+        val intent = Intent(this, MapInfoDataActivity::class.java)
+        startActivityForResult(intent, REQUESTCODE_MAPINFDATA)
     }
 
     /**
@@ -1844,29 +1871,4 @@ class MainActivity : AppCompatActivity() {
         }
         mapDisp(mMapDataDownLoadMode)
     }
-
-    /**
-     * 地質図 (20万分の1日本シームレス地質図V2)の凡例データ取得
-     * path     保存ファイル名
-     */
-    fun loadSeamlessLegend(path: String) {
-        if (!klib.existsFile(path)) {
-            Log.d(TAG,"loadSeamlessLegend")
-            var downLoad = DownLoadWebFile(mMapInfoData.mLegendSeamless_V2, path)
-            downLoad.start()
-            while (downLoad.isAlive()) {
-                Thread.sleep(100L)
-            }
-        }
-        if (klib.existsFile(path)) {
-            var listData = klib.loadTextData(path)
-            for (data in listData) {
-                var legend = data.split("\t")
-                if (2 < legend.size && !mSeamLesLegend.containsKey(legend[2]))
-                    mSeamLesLegend.put(legend[2], legend)
-            }
-            Log.d(TAG,"loadSeamlessLegend: " + mSeamLesLegend.size)
-        }
-    }
-
 }
