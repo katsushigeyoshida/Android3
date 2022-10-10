@@ -23,21 +23,26 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.MyApplication">
+        <activity
+            android:name=".MapInfoDataActivity"
+            android:exported="false" />
+
         <service
             android:name=".GpsService"
             android:enabled="true"
             android:exported="true" />
-        <activity android:name=".WikiList"></activity>
+
+        <activity android:name=".WikiList" />
         <activity android:name=".GpsGraph" />
         <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
     </application>
 
 </manifest>
