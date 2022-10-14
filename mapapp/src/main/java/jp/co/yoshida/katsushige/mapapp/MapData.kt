@@ -7,6 +7,7 @@ import jp.co.yoshida.katsushige.mylib.DownLoadWebFile
 import jp.co.yoshida.katsushige.mylib.KLib
 import jp.co.yoshida.katsushige.mylib.PointD
 import jp.co.yoshida.katsushige.mylib.RectD
+import java.time.LocalDateTime
 
 //  地図の位置情報
 //  国土地理院のタイル画像を画面上に配置するためのクラス
@@ -46,15 +47,17 @@ class MapData(var context: Context, var mMapInfoData: MapInfoData) {
     var mRowCount = 1                                 //  表示行数
     var mStart = PointD(0.0, 0.0)               //  表示開始座標(Map座標)
     var mView = Size(1000, 1000)          //  表示するViewの大きさ
-    var mUrl = ""                                       //  地図データURL
+    var mMapUrl = ""                                    //  地図データURL
     var mElevatorDataNo = 0                             //  使用標高データのNo
     var mBaseMapDataNo = 0                              //  重ね合わせ表示のベースマップDataNo
     var mBaseMapOver = false                            //  重ね合わせの順番(BaseMapを上)
     val mColorLegend = mutableMapOf<String, String>()   //  地図の色凡例データ
 
     var mBaseFolder = ""                                //  Mapデータ保存フォルダ
-    val mImageFileSet = mutableSetOf<String>()      //  ダウンロードしたファイルリスト(Web上に存在しないファイルも登録)
-    var mDataFolder = ""                            //
+    var mDataFolder = ""                                //  App直下のデータフォルダ
+    val mImageFileSet = mutableSetOf<String>()          //  ダウンロードしたファイルリスト(Web上に存在しないファイルも登録)
+    var mDateTimeFolder = ""                            //  日時フォルダ名
+    var mDispMapPreDateTime = LocalDateTime.now()       //
 
     val klib = KLib()
 
@@ -78,7 +81,7 @@ class MapData(var context: Context, var mMapInfoData: MapInfoData) {
         mapData.mRowCount = mRowCount
         mapData.mStart = PointD(mStart.x, mStart.y)
         mapData.mView = Size(mView.width,  mView.height)
-        mapData.mUrl = mUrl
+        mapData.mMapUrl = mMapUrl
         mapData.mElevatorDataNo = mElevatorDataNo
         mapData.mBaseMapDataNo = mBaseMapDataNo
         mapData.mBaseFolder = mBaseFolder
@@ -115,15 +118,15 @@ class MapData(var context: Context, var mMapInfoData: MapInfoData) {
         mRowCount    = data[6].toInt()
         mStart.x     = data[7].toDouble()
         mStart.y     = data[8].toDouble()
+        mMapInfoData.setMapTitleNum(mMapTitleNum)
     }
 
     /**
      *  クラスデータのチェック(正規化)
      */
     fun normarized(){
-        Log.d(TAG, "normarized: "+mMapTitleNum)
         mMapTitleNum = if (mMapTitleNum < 0 || mMapInfoData.mMapData.size <= mMapTitleNum) 0 else mMapTitleNum
-        Log.d(TAG, "normarized: "+mMapTitleNum)
+        mMapInfoData.setMapTitleNum(mMapTitleNum)
         mMapTitle = mMapInfoData.mMapData[mMapTitleNum][1]
         mExt = mMapInfoData.mMapData[mMapTitleNum][2]
         mZoom = Math.min(Math.max(mZoom, 0), 20)
@@ -134,11 +137,77 @@ class MapData(var context: Context, var mMapInfoData: MapInfoData) {
         mColCount = Math.min(mColCount, maxColCount)
         mCellSize = getCellSize().toFloat()
         mRowCount = getRowCount().toInt()
-        mUrl = mMapInfoData.mMapData[mMapTitleNum][7]
+        mMapUrl = mMapInfoData.mMapData[mMapTitleNum][7]
         mElevatorDataNo = mMapInfoData.getElevatorDataNo(mMapInfoData.mMapData[mMapTitleNum][10])
         mBaseMapDataNo = mMapInfoData.getMapDataNo(mMapInfoData.mMapData[mMapTitleNum][11])
         mBaseMapOver = mMapInfoData.mMapData[mMapTitleNum][13].compareTo("true") == 0
+        mDateTimeFolder = ""
         loadColorLegend()
+    }
+
+    /**
+     * 日時付Webアドレスの処理
+     * forth        強制過去データ削除
+     */
+    fun setDateTime(forth: Boolean = false) {
+        mDateTimeFolder = ""
+        mMapInfoData.mDispDateTime.clear()
+        if (mMapInfoData.isDateTimeData(mMapUrl)) {
+            mMapUrl = mMapInfoData.setMapWebAddress(mMapUrl)
+            mDateTimeFolder = mMapInfoData.mDateTimeFolder
+            if (forth ||
+                (0 < mMapInfoData.mDateTimeFolder.length &&
+                mMapInfoData.mDispDateTime[0] != mDispMapPreDateTime)) {
+                //  過去データを削除
+                removeMapData(false)
+                mDispMapPreDateTime = mMapInfoData.mDispDateTime[0]
+            }
+        }
+    }
+
+    /**
+     * 表示中地図データの削除
+     * msg      確認メッセージの有無(予定)
+     */
+    fun removeMapData(msg: Boolean = true) {
+        var path = klib.getFullPath(getDownloadDataBaseFolder())
+        if (!msg) {
+            try {
+                if (klib.existsFile(path)) {
+                    klib.deleteDirectory(path)
+                    removeImageFileList()
+                }
+                if (isMergeData()) {
+                    //  重ね合わせデータの削除
+                    path = klib.getFullPath(getDownloadDataBaseFolder(false))
+                    if (klib.existsFile(path)) {
+                        klib.deleteDirectory(path)
+                        removeImageFileList()
+                    }
+                }
+            } catch (e: Exception) {
+                Log.d(TAG,"removeMapData: " + e.message)
+            }
+        }
+    }
+
+    /**
+     * ImageFileListから自分のURLを削除する
+     */
+    fun removeImageFileList() {
+        var url = ""
+        if (0 < mMapUrl.length) {
+            url = mMapUrl.substring(0, klib.lastIndexOf(mMapUrl, "/", 3))
+        } else {
+            url = mMapInfoData.mGsiUrl + mMapTitle
+        }
+        var removeList = mutableListOf<String>()
+        for (item in mImageFileSet) {
+            if (0 <= item.indexOf(url))
+                removeList.add(item)
+        }
+        for (item in removeList)
+            mImageFileSet.remove(item)
     }
 
     /**
@@ -150,7 +219,6 @@ class MapData(var context: Context, var mMapInfoData: MapInfoData) {
     fun getElevatorDataFile(x: Int, y: Int, fileUdate: MainActivity.WebFileDownLoad) {
         val elevatorUrl = getElevatorWebAddress(x, y)
         val downloadPath = downloadElevatorPath(x, y)
-        Log.d(TAG, "getElevatorDataFile: "+ elevatorUrl + " " + downloadPath)
         getDownLoadFile(elevatorUrl, downloadPath, fileUdate)
     }
 
@@ -169,7 +237,7 @@ class MapData(var context: Context, var mMapInfoData: MapInfoData) {
             pos = cnvMapPositionZoom(eleZoomMax, pos)
             eleZoom = eleZoomMax
         }
-        return mMapInfoData.getElevatorWebAddress(mElevatorDataNo, eleZoom, pos.x.toInt(), pos.y.toInt())
+        return mMapInfoData.getElevatorWebAddress(eleZoom, pos.x.toInt(), pos.y.toInt(), mElevatorDataNo)
     }
 
     /**
@@ -227,17 +295,19 @@ class MapData(var context: Context, var mMapInfoData: MapInfoData) {
      */
     fun getMergeMapData(x: Int, y: Int, fileUdate: MainActivity.WebFileDownLoad): String {
         val mergeDataPath = downloadMergeDataPath(x, y)
-        Log.d(TAG,"getMergeMapData: " + x + " " + y + " " + mergeDataPath)
         if (klib.existsFile(mergeDataPath) && fileUdate == MainActivity.WebFileDownLoad.OFFLINE)
             return mergeDataPath
 
+        //  重ね合わせデータ取得のためMapDataをコピー
         var baseMap = copyTo()
         baseMap.mMapTitleNum = mBaseMapDataNo
         val baseMapDataPath = baseMap.getMapDataDownload(x, y, fileUdate)
         val lapMapDataPath = getMapDataDownload(x, y, fileUdate)
         if (!klib.mkdir(klib.getFolder(mergeDataPath)))
             return ""
-        val transparent = mMapInfoData.getMapOverlapTransparent(mMapTitleNum)
+
+        val transparent = mMapInfoData.getMapOverlapTransparent(mMapTitleNum)   //  透過色の取得
+        //  重ね合わせ処理
         if (mBaseMapOver) {
             return klib.imageComposite(lapMapDataPath, baseMapDataPath, mergeDataPath, transparent)
         } else {
@@ -253,9 +323,8 @@ class MapData(var context: Context, var mMapInfoData: MapInfoData) {
      * return       ダウンロードパス
      */
     fun getMapDataDownload(x: Int, y: Int, fileUdate: MainActivity.WebFileDownLoad): String {
-        var mapUrl = mMapInfoData.getMapWebAddress(mMapTitleNum, mZoom, x, y)
+        var mapUrl = mMapInfoData.getMapWebAddress(mZoom, x, y, mMapTitleNum)
         var downLoadPath = downloadPath(x, y)
-        Log.d(TAG, "getMapDataDownload: " + mapUrl + " " + downLoadPath)
         getDownLoadFile(mapUrl, downLoadPath, fileUdate)
         return downLoadPath
     }
@@ -267,10 +336,9 @@ class MapData(var context: Context, var mMapInfoData: MapInfoData) {
      * return       ダウンロードパス
      */
     fun downloadPath(x: Int, y: Int): String {
-        var downloadPath = mBaseFolder + mMapInfoData.getMapDataId(mMapTitleNum) +
+        return mBaseFolder + mMapInfoData.getMapDataId(mMapTitleNum) + mDateTimeFolder +
                 "/" + mZoom.toString() + "/" + x + "/" + y + "." +
                 mMapInfoData.getMapDataExt(mMapTitleNum)
-        return downloadPath
     }
 
     /**
@@ -280,14 +348,27 @@ class MapData(var context: Context, var mMapInfoData: MapInfoData) {
      * return       ダウンロードパス
      */
     fun downloadMergeDataPath(x: Int, y:Int): String {
-        var downloadPath = mBaseFolder + mMapInfoData.getMapDataId(mMapTitleNum) +
+        return mBaseFolder + mMapInfoData.getMapDataId(mMapTitleNum) +
                 "_" + mMapInfoData.getMapMergeDataId(mMapTitleNum) +
                 (if (mMapInfoData.getMapMergeOverlap(mMapTitleNum)) "_up" else "") +
                 "/" + mZoom.toString() + "/" + x + "/" + y + "." +
                 mMapInfoData.getMapDataExt(mMapTitleNum)
-        return downloadPath
     }
 
+    /**
+     * 地図データを保存するフォルダ名の取得
+     * merge        重ね合わせの有無
+     * return       フォルダ名
+     */
+    fun getDownloadDataBaseFolder(merge: Boolean = true): String {
+        if (merge && isMergeData()) {
+            return mBaseFolder + "/" + mMapInfoData.getMapDataId(mMapTitleNum) +
+                    "_" + mMapInfoData.getMapMergeDataId(mMapTitleNum) +
+                    (if (mMapInfoData.getMapMergeOverlap(mMapTitleNum)) "_up" else "")
+        } else {
+            return mBaseFolder + "/" +  mMapInfoData.getMapDataId(mMapTitleNum)
+        }
+    }
 
     /**
      * タイルデータをWebからダウンロードする
