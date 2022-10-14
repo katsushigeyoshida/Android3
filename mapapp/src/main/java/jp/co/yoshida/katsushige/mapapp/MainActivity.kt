@@ -128,6 +128,7 @@ class MainActivity : AppCompatActivity() {
     lateinit var btMark: Button
     lateinit var btGpsOn: Button
     lateinit var btRedraw: Button
+    lateinit var btClockInc: Button
     lateinit var spMapType: Spinner
     lateinit var spZoomLevel: Spinner
     lateinit var spColCount:Spinner
@@ -166,6 +167,7 @@ class MainActivity : AppCompatActivity() {
         btMark = binding.btMark
         btGpsOn = binding.btGpsOn
         btRedraw = binding.btRedraw
+        btClockInc = binding.btClockInc
         spColCount = binding.spColCount
         spZoomLevel = binding.spZoomLevel
         spMapType =binding.spMapType
@@ -556,8 +558,7 @@ class MainActivity : AppCompatActivity() {
             override fun onItemSelected(parent: AdapterView<*>, view: View, position: Int, id: Long) {
                 if (mMapData.mMapTitleNum != position) {
                     mMapData.mMapTitleNum = position
-                    title = mAppTitle + " [" + mMapInfoData.mMapData[mMapData.mMapTitleNum][0] + "]"
-                    mMapData.normarized()
+                    mapInit()
                     mapDisp(mMapDataDownLoadMode)
                 }
             }
@@ -657,7 +658,31 @@ class MainActivity : AppCompatActivity() {
             setMarkButton()
             mapDisp(mMapDataDownLoadMode)
         }
+
+        //  時刻設定の地図データの予測時間切り替え
+        btClockInc.setOnClickListener {
+            var timeString = mutableListOf<String>()
+            var countMax = if (30 <= mMapData.mMapInfoData.mDateTimeInterval) 16
+                            else 60 / mMapData.mMapInfoData.mDateTimeInterval
+            for (i in -1..countMax) {
+                var addtime = i * mMapData.mMapInfoData.mDateTimeInterval
+                var timeStr = if (30 <= mMapData.mMapInfoData.mDateTimeInterval) (addtime / 60).toString() + "時間後"
+                                else addtime.toString() + "分後"
+                timeString.add(timeStr)
+            }
+            klib.setMenuDialog(this, "予測時間", timeString, iTimeIncSelectOperation)
+        }
     }
+
+    //  時刻設定の地図データの予測時間設定
+    var iTimeIncSelectOperation = Consumer<String> { s ->
+        Toast.makeText(this, s, Toast.LENGTH_LONG).show()
+        var addtime = klib.str2Integer(s) * if (0 <= s.indexOf("時間")) 60 else 1
+        mMapData.mMapInfoData.mDateTimeInc = addtime / mMapData.mMapInfoData.mDateTimeInterval
+        mapInit()
+        mapDisp(mMapDataDownLoadMode)
+    }
+
 
     /**
      * 地図データのタイトルをSpnnerに設定
@@ -752,6 +777,20 @@ class MainActivity : AppCompatActivity() {
             //  マーク非表示
             btMark.setBackgroundColor(Color.rgb(100, 50, 200))   //  紫
         }
+    }
+
+    /**
+     * 地図表示前の設定(初期化)
+     */
+    fun mapInit() {
+        mMapData.normarized()
+        mMapData.setDateTime()
+        mMapView.mDispDateTime = mMapData.mMapInfoData.mDispDateTime
+        if (mMapData.mMapInfoData.isDateTimeData())
+            btClockInc.visibility = View.VISIBLE
+        else
+            btClockInc.visibility = View.INVISIBLE
+        title = mAppTitle + " [" + mMapInfoData.getMapDataTitle() + "]"
     }
 
     /**
@@ -893,7 +932,7 @@ class MainActivity : AppCompatActivity() {
             for (j in mapData.mStart.y.toInt()..mapData.mStart.y.toInt() + mapData.mRowCount) {
                 if (i <= Math.pow(2.0, mapData.mZoom.toDouble()) &&
                     j <= Math.pow(2.0, mapData.mZoom.toDouble())) {
-                    mapFileDownLoad(mapData.mUrl, mapData.mMapTitle, mapData.mZoom, i, j, mapData.mExt, WebFileDownLoad.NORMAL)
+                    mapFileDownLoad(mapData.mMapUrl, mapData.mMapTitle, mapData.mZoom, i, j, mapData.mExt, WebFileDownLoad.NORMAL)
                 }
             }
         }
@@ -1309,6 +1348,7 @@ class MainActivity : AppCompatActivity() {
         val parameter = mAreaData.mAreaDataList[s]
         if (parameter != null) {
             mMapData.setStringData(parameter)
+            mapInit()
             mapDisp(mMapDataDownLoadMode)
         }
     }
