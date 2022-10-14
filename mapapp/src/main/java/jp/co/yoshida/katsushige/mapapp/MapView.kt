@@ -6,6 +6,8 @@ import android.util.Log
 import android.util.SizeF
 import android.view.View
 import jp.co.yoshida.katsushige.mylib.*
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 //import kotlinx.android.synthetic.main.activity_main.*
 
@@ -26,6 +28,10 @@ class MapView(context: Context,var mMapData: MapData): View(context) {
     var mElevator = 0.0                     //  標高値(Mainから設定)
     var mColor = ""
     var mComment = ""
+    var mDispDateTime = mutableListOf<LocalDateTime>()
+    var mDateTimeFormat = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss")
+    var mDateTime = ""
+    var mDateTimeForcst = ""
 
     var klib = KLib()
     val kdraw = KDraw()
@@ -95,6 +101,12 @@ class MapView(context: Context,var mMapData: MapData): View(context) {
         if (0 < mComment.length) {
             y += 40f
             kdraw.drawTextWithBox(mComment, PointD(x.toDouble(), y.toDouble()))
+        }
+        if (1 < mDispDateTime.size) {
+            y += 40f
+            kdraw.drawTextWithBox("測定" + mDispDateTime[0].format(mDateTimeFormat), PointD(x.toDouble(), y.toDouble()))
+            y += 40f
+            kdraw.drawTextWithBox("予測" + mDispDateTime[1].format(mDateTimeFormat), PointD(x.toDouble(), y.toDouble()))
         }
     }
 
