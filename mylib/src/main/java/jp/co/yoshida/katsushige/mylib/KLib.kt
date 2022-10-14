@@ -27,6 +27,8 @@ import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.LocalTime
+import java.time.temporal.ChronoUnit
 import java.util.*
 import kotlin.math.*
 
@@ -70,8 +72,11 @@ import kotlin.math.*
  *  strZne2Han(zenStr: String):String  文字列内の全角英数字を半角に変換
  *  strNumZne2Han(zenStr: String): String  文字列内の全角数値を半角に変換
  *  stripBrackets(text: String, sb: Char = '[', eb: Char = ']'): String 文字列から括弧で囲まれた領域を取り除く
+ *  extractBrackets(text: String, sb: Char = '{', eb: Char ='}', withBacket: Boolean = false): List<String> 弧で囲まれた文字列を抽出
  *  splitCsvString(str: String): List<String>   カンマセパレータで文字列を分解
  *  wcMatch(srcstr: String, findstr: String): Boolean   ファイル名をワイルドカードでマッチング
+ *  indexOf(text: String, v: String, count: Int = 1): Int   文字列を前から検索する
+ *  lastIndexOf(text: String, v: String, count: Int = 1): Int   文字列を後から検索する
  *  --  時間・日付処理  ---
  *  getTimeType(time: String): Int  時間文字列の種類を取得
  *  getWeekDayType(week: String): Int   週文字列の種類を取得
@@ -97,6 +102,7 @@ import kotlin.math.*
  *  string2Date(date: String): Date 日付文字列に日付型に変換
  *  date2String(date: Date, format: String): String Dateをフォーマットにしたがって文字列に変換
  *  lap2String(lapTime: Long): String   経過時間を文字列に変換
+ *  roundDateTimeMin(et: LocalDateTime, min: Long): LocalDateTime   日時を分単位で丸める
  *  ---  ファイル処理  ---
  *  saveCsvData(path: String, format: List<String>, data: List<List<String>>)   CSV形式でListデータを保存
  *  saveCsvData(path: String, data: List<List<String>>) ListデータをCSV形式で保存
@@ -112,6 +118,7 @@ import kotlin.math.*
  *  mkdir(path: String): Boolean    ディレクトリの作成
  *  existsFile(path: String): Boolean   ファイルの存在チェック
  *  removeFile(path: String): Boolean   ファイル削除
+ *  deleteDirectory(path: String)   ディレクトリ削除
  *  copyFile(srcPath: String, destDir: String): Boolean ファイルのコピー
  *  copyfile(srFile: String, dtFile: String): Boolean   ファイルのコピー(コピー先ファイル名の変更も可能)
  *  oveFile(orgFilePath: String, destDir: String): Boolean  ファイルの移動(ディレクトリ指定)
@@ -803,6 +810,47 @@ class KLib {
     }
 
     /**
+     * 弧で囲まれた文字列を抽出する(ディフォルトは'{','}')
+     *  text        文字列
+     *  sb          開始括弧
+     *  eb          終了括弧
+     *  withBacket  抽出した文字列に括弧を含む
+     *  return      抽出したカッコ内文字列リスト
+     */
+    fun extractBrackets(text: String, sb: Char = '{', eb: Char ='}', withBacket: Boolean = false): List<String> {
+        var extractText = mutableListOf<String>()
+        var bOffset = if (withBacket) 1 else 0
+        var pos = 0
+        var sp = text.indexOf(sb)
+        var ep = text.indexOf(eb)
+        if ((0 <= sp && 0 <= ep && ep < sp) || (sp < 0 && 0 <= ep)) {
+            var data = text.substring(0, ep + bOffset)
+            if (0 < data.length)
+                extractText.add(data)
+            pos = ep + 1
+        }
+        while (pos < text.length) {
+            var st = text.indexOf(sb, pos)
+            var data = ""
+            if (pos <= st) {
+                var ct = text.indexOf(eb, st)
+                if (0 <= ct) {
+                    data = text.substring(st + 1 - bOffset, ct + bOffset)
+                    pos = ct + 1
+                } else {
+                    data = text.substring(st + 1 - bOffset)
+                    pos = text.length
+                }
+            } else {
+                pos = text.length
+            }
+            if (0 < data.length)
+                extractText.add(data)
+        }
+        return extractText
+    }
+
+    /**
      * カンマセパレータで文字列を分解する
      * "で囲まれている場合は"内の文字列を抽出する
      */
@@ -886,6 +934,36 @@ class KLib {
         } while (si < ss.length && fi < fs.length)
 
         return true
+    }
+
+    /**
+     * 文字列を前から検索する
+     * text         検索される文字列
+     * v            検索する文字列
+     * count        検索回数
+     * return       検索位置
+     */
+    fun indexOf(text: String, v: String, count: Int = 1): Int {
+        var n = 0
+        for (i in 0..count - 1) {
+            n = text.indexOf(v, n + 1)
+        }
+        return n
+    }
+
+    /**
+     * 文字列を後から検索する
+     * text         検索される文字列
+     * v            検索する文字列
+     * count        検索回数
+     * return       検索位置
+     */
+    fun lastIndexOf(text: String, v: String, count: Int = 1): Int {
+        var n = text.length
+        for (i in 0..count - 1) {
+            n = text.lastIndexOf(v, n - 1)
+        }
+        return n
     }
 
     //  ---  時間・日付処理  \\\
@@ -1508,6 +1586,19 @@ class KLib {
             return String.format("%02d:%02d:%02d", hh, mm, ss)
     }
 
+    /**
+     * 日時を分単位で丸める
+     * et           日時
+     * min          丸める分
+     * return       真似メタ日時
+     */
+    fun roundDateTimeMin(et: LocalDateTime, min: Long): LocalDateTime {
+        val st = LocalDateTime.of(2000, 1, 1, 0, 0, 0)
+        val dt = ChronoUnit.MINUTES.between(st, et)
+        val rt = st.plusMinutes(floor(dt.toFloat() / min.toFloat()).toLong() * min)
+        return rt
+    }
+
 
     //  ---  ファイル処理  ---
 
@@ -1786,6 +1877,30 @@ class KLib {
             return file.delete()
         return false
     }
+
+    /**
+     * 再帰的にディレクトリを削除
+     * path     ディレクトリ名
+     */
+    fun deleteDirectory(path: String) {
+        val file = File(path)
+        deleteDirectory(file)
+    }
+
+    /**
+     * 再帰的にディレクトリを削除
+     * file     Fileデータ
+     */
+    fun deleteDirectory(file: File) {
+        if (file.isDirectory) {
+            val contents = file.listFiles()
+            for (f in contents) {
+                deleteDirectory(f)
+            }
+        }
+        file.delete()
+    }
+
 
     /**
      * ファイルのコピー
