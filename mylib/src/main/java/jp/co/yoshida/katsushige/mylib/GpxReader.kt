@@ -226,9 +226,10 @@ class GpxReader(var mDataType: DATATYPE = DATATYPE.gpxData) {
 
     /**
      * LoactionデータをGpsDataに変換して取り込む
-     * listLocatio      Locationデータのリスト
+     * listLocation     Locationデータのリスト
+     * speedRef         速度の測定値を使う(false: 距離と時間から速度を求める)
      */
-    fun location2GpsData(listLocation: List<Location>) {
+    fun location2GpsData(listLocation: List<Location>, speedRef: Boolean = true) {
         mListGpsData.clear()
         for (i in 0..(listLocation.size - 1)) {
             var gpsData = GpsData()
@@ -237,15 +238,21 @@ class GpxReader(var mDataType: DATATYPE = DATATYPE.gpxData) {
             gpsData.mLongitude = listLocation[i].longitude
             gpsData.mElevator = listLocation[i].altitude
             if (i == 0) {
-                gpsData.mDistance = 0.0
-                gpsData.mLap = 0
+                gpsData.mDistance = 0.0 //  km
+                gpsData.mLap = 0        //  ms
             } else {
                 gpsData.mDistance = klib.cordinateDistance(
                     PointD(listLocation[i - 1].longitude, listLocation[i - 1].latitude),
                     PointD(listLocation[i].longitude, listLocation[i].latitude))
                 gpsData.mLap = listLocation[i].time - listLocation[i - 1].time
             }
-            gpsData.mSpeed = listLocation[i].speed.toDouble() * 3.6     //  m/s → km/h 変換
+            if (gpsData.mLap == 0L) {
+                gpsData.mSpeed = 0.0
+            } else if (listLocation[i].speed.toDouble() == 0.0 || !speedRef) {
+                gpsData.mSpeed = gpsData.mDistance / gpsData.mLap * 1000 * 3600
+            } else {
+                gpsData.mSpeed = listLocation[i].speed.toDouble() * 3.6     //  m/s → km/h 変換
+            }
             mListGpsData.add(gpsData)
         }
     }
