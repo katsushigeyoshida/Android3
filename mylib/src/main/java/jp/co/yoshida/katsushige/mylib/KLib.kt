@@ -327,7 +327,7 @@ class KLib {
      * 地球上の２地点の緯度・経度を指定して最短距離を求める
      * ps       開始座標
      * pe       終了座標
-     * return   距離8km)
+     * return   距離(km)
      */
     fun cordinateDistance(ps: PointD, pe: PointD): Double {
         return cordinateDistance(ps.x, ps.y, pe.x, pe.y)
@@ -516,6 +516,26 @@ class KLib {
      */
     fun ctrPoint2(ps: PointF, pe: PointF): PointF {
         return PointF((ps.x - pe.x) / 2.0f, (ps.y - pe.y) / 2.0f)
+    }
+
+    /**
+     * 最上位桁が1,2,5になるように数値を丸める
+     * v        数値
+     * return   丸めた数値
+     */
+    fun floorStepSize(v: Double): Double {
+        val mag = floor(log10(abs(v)))
+        val base = 10.0
+        val magPow = floor(abs(v) / base.pow(mag))
+        var magMsd = 0.0
+        if (magPow >= 5.0) {
+            magMsd = 5 * base.pow(mag)
+        } else if (magPow >= 2.0) {
+            magMsd = 2 * base.pow(mag)
+        } else {
+            magMsd = base.pow(mag)
+        }
+        return magMsd * sign(v)
     }
 
     /**
@@ -2063,8 +2083,8 @@ class KLib {
         if (null != files) {
             for (i in files.indices) {
                 if (files[i].isFile) {
-                    if (0 == filter.length || wcMatch(files[i].name, filter))
-                    fileList.add(files[i])
+                    if (filter.isEmpty() || wcMatch(files[i].name, filter))
+                        fileList.add(files[i])
                 } else if (subdir) {
                     fileList.addAll(getFileList(files[i].path, subdir, filter))
                 }
