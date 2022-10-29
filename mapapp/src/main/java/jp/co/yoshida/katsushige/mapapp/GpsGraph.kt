@@ -42,9 +42,9 @@ class GpsGraph : AppCompatActivity() {
         Log.d(TAG,"onCreate: "+filePath)
         if (0 < filePath.toString().indexOf(".csv")) {
             var gpsTrace = GpsTrace()
-            var gpsData = gpsTrace.loadGpxData(filePath.toString())
+            var gpsData = gpsTrace.loadGpxData(filePath.toString()) //  CSV形式のファイルからGPSデータを読み込む
             if (0 < gpsData.size) {
-                gpxReader.location2GpsData(gpsData)
+                gpxReader.location2GpsData(gpsData, false)
             } else {
                 Toast.makeText(this, "データがありません", Toast.LENGTH_LONG).show()
                 return

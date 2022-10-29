@@ -170,7 +170,7 @@ class MainActivity : AppCompatActivity() {
         btClockInc = binding.btClockInc
         spColCount = binding.spColCount
         spZoomLevel = binding.spZoomLevel
-        spMapType =binding.spMapType
+        spMapType = binding.spMapType
 
         mDataFolder = klib.getPackageNameDirectory(this)
         mMapInfoDataPath = mDataFolder + "/" + mMapInfoDataPath
@@ -187,7 +187,7 @@ class MainActivity : AppCompatActivity() {
         mMapData.loadParameter()                //  パラメータの読み込み
         setParameter()
         setViewParameter()
-        title = mAppTitle + " [" + mMapInfoData.mMapData[mMapData.mMapTitleNum][0] + "]"
+        mapInit()
 
         //  ダウンロードのモードを引き継ぐ
         var downloadMode = klib.getStrPreferences("WebFileDownLoadMode", this).toString()
@@ -219,6 +219,7 @@ class MainActivity : AppCompatActivity() {
         Log.d(TAG,"onStop")
         if (mGpsTrace.mGpxConvertOn) {
             //  GPX変換が終わっていなければ処理待ちをおこなう
+            Toast.makeText(this, "GPX変換エキスポート中", Toast.LENGTH_LONG).show()
             runBlocking {
                 try {
                     mGpsTrace.mGpxConvertJob.join()
@@ -822,7 +823,7 @@ class MainActivity : AppCompatActivity() {
         mMapView.mElevator = getMapElevator(mMapData, mMapData.getMapCenter())
         //  中心のカラーデータ
         var rgb = getMapPixelColor(mMapData, mMapData.getMapCenter())
-        mMapView.mColor = rgb.uppercase()
+        mMapView.mCenterColor = rgb.uppercase()
         mMapView.mComment = ""
         if (0 < mMapData.mColorLegend.size) {
             //  色凡例
@@ -1205,6 +1206,7 @@ class MainActivity : AppCompatActivity() {
     fun dispGpsTrace() {
         Log.d(TAG,"dispGpsTrace: " + mGpsTraceFileFolder)
         var listFile = klib.getFileList(mGpsTraceFileFolder, false, "*.csv")
+        listFile = listFile.sortedByDescending { it.lastModified() }
         var fileNameList = mutableListOf<String>()
         if (mGpsTrace.mTraceOn && klib.existsFile(mGpsTraceFileFolder + "/" + mGpsFileName))
             fileNameList.add("トレース中データ")
@@ -1212,22 +1214,21 @@ class MainActivity : AppCompatActivity() {
             fileNameList.add(file.nameWithoutExtension)
             Log.d(TAG,"dispGpsTrace: " + file.path)
         }
-        fileNameList.sortDescending()
         var chkList = BooleanArray(fileNameList.size)
         for (i in 0..(fileNameList.size - 1))
             chkList[i] = false
-        klib.setChkMenuDialog(this, "ファイルリスト", fileNameList.toTypedArray(), chkList, iGpsTraceDisp)
+        klib.setChkMenuDialog(this, "トレース表示ファイルリスト", fileNameList.toTypedArray(), chkList, iGpsTraceDisp)
     }
 
     //  GPSトレースファイル選択表示
     var iGpsTraceDisp = Consumer<BooleanArray> { s ->
         var listFile = klib.getFileList(mGpsTraceFileFolder, false, "*.csv")
+        listFile = listFile.sortedByDescending { it.lastModified() }
         var fileNameList = mutableListOf<String>()
         if (mGpsTrace.mTraceOn && klib.existsFile(mGpsTraceFileFolder + "/" + mGpsFileName))
             fileNameList.add("トレース中データ")
         for (file in listFile)
             fileNameList.add(file.nameWithoutExtension)
-        fileNameList.sortDescending()
         mGpsTrace.mGpsPointDatas.clear()
         for (i in 0..(s.size - 1)) {
             if (s[i]) {
@@ -1246,13 +1247,13 @@ class MainActivity : AppCompatActivity() {
      */
     fun gpsTraceGraph() {
         var listFile = klib.getFileList(mGpsTraceFileFolder, false, "*.csv")
+        listFile = listFile.sortedByDescending { it.lastModified() }
         var fileNameList = mutableListOf<String>()
         if (mGpsTrace.mTraceOn && klib.existsFile(klib.getPackageNameDirectory(this) + "/" + mGpsFileName))
             fileNameList.add("トレース中データ")
         for (file in listFile)
             fileNameList.add(file.nameWithoutExtension)
-        fileNameList.sortDescending()
-        klib.setMenuDialog(this, "ファイルリスト", fileNameList, iGpsSelectGraphOperation)
+        klib.setMenuDialog(this, "グラフ表示ファイルリスト", fileNameList, iGpsSelectGraphOperation)
     }
 
     //  選択ファイルのグラフ表示
@@ -1270,16 +1271,18 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    //  トレース位置に移動
+    /**
+     *  トレース位置に移動
+     */
     fun gpsTraceMove() {
         var listFile = klib.getFileList(mGpsTraceFileFolder, false, "*.csv")
+        listFile = listFile.sortedByDescending { it.lastModified() }
         var fileNameList = mutableListOf<String>()
         if (mGpsTrace.mTraceOn && klib.existsFile(klib.getPackageNameDirectory(this) + "/" + mGpsFileName))
             fileNameList.add("トレース中データ")
         for (file in listFile)
             fileNameList.add(file.nameWithoutExtension)
-        fileNameList.sortDescending()
-        klib.setMenuDialog(this, "ファイルリスト", fileNameList, iGpsMove)
+        klib.setMenuDialog(this, "位置移動ファイルリスト", fileNameList, iGpsMove)
     }
 
     //  トレース位置に移動

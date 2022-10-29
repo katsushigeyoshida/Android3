@@ -628,6 +628,15 @@ class MapData(var context: Context, var mMapInfoData: MapInfoData) {
     }
 
     /**
+     * 緯度経度座標(度)をスクリーン座標に変換
+     * cp       緯度経度座標
+     * return   スクリーン座標
+     */
+    fun coordinates2Screen(cp: PointD): PointD {
+        return baseMap2Screen(coordinates2BaseMap(cp))
+    }
+
+    /**
      *  BaseMap座標をスクリーン座標に変換
      *  bp      BaseMap座標
      *  return  スクリーン座標
@@ -661,7 +670,19 @@ class MapData(var context: Context, var mMapInfoData: MapInfoData) {
         return sp
     }
 
-    //  スクリーン座標をBaseMap座標に変換
+    /**
+     * スクリーン座標を緯度経度座標(度)に変換する
+     * sp       スクリーン座標
+     * return   緯度経度座標(度)
+     */
+    fun screen2Coordinates(sp: PointD): PointD {
+        return baseMap2Coordinates(screen2BaseMap(sp))
+    }
+
+    /**  スクリーン座標をBaseMap座標に変換
+     * sp       スクリーン座標
+     * return   BaseMap座標
+     */
     fun screen2BaseMap(sp: PointD): PointD {
         var mp = screen2Map(sp)
         return map2BaseMap(mp)
@@ -672,7 +693,7 @@ class MapData(var context: Context, var mMapInfoData: MapInfoData) {
      *  sp      スクリーン座標
      *  return  Map座標
      */
-    fun screen2Map(sp: PointD): PointD{
+    fun screen2Map(sp: PointD): PointD {
         var x = mStart.x + sp.x / mCellSize
         var y = mStart.y + sp.y / mCellSize
         return PointD(x, y)

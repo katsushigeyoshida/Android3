@@ -22,9 +22,11 @@ import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import kotlin.math.max
 
 /**
- *  GPSでの取得位置をデータ保存し、トレースを表示する
+ *  GPSでの取得位置情報をCSV形式でデータ保存/読込、トレースを地図上に表示する
+ *  GPSトレースファイルのファイル操作(Rename/Move/Remove/Export/Info)
  */
 class GpsTrace {
     val TAG = "GpsTrace"
@@ -37,6 +39,7 @@ class GpsTrace {
     var mGpsPointData = mutableListOf<PointD>()     //  GPSトレースのデータリスト(座標のみの簡易形式)
     var mGpsLastElevator = 0.0                      //  GPSトレースの標高最新値
     var mStepCount = mutableListOf<Int>()           //  歩数のレスとデータ
+    var mGpsLap = mutableListOf<Long>()             //  GPS経過時間
     var mGpsPointDatas = mutableListOf<List<PointD>>()  //  GPSトレースデータリスト(簡易形式)のリスト
     var mLineColor = Color.GREEN                    //  トレース中の線の色
     var mLineColors = listOf(                       //  色リスト
@@ -208,12 +211,14 @@ class GpsTrace {
      */
     fun loadGpsPointData(path: String = mGpsPath) {
         mGpsPointData.clear()
+        mGpsLap.clear()
         mStepCount.clear()
         var listData = klib.loadCsvData(path)
         for (data in listData) {
             if (data[0].compareTo("DateTime") != 0) {
                 var location = PointD(data[3].toDouble(), data[2].toDouble())   //  経度,緯度
                 mGpsPointData.add(location)
+                mGpsLap.add(data[1].toLong())
                 if (8 < data.size)
                     mStepCount.add(data[8].toInt())         //  歩数
                 else
@@ -385,6 +390,34 @@ class GpsTrace {
     }
 
     /**
+     * 経過時間(sec)
+     */
+    fun lastLap(): Double {
+        return (mGpsLap[mGpsPointData.lastIndex] - mGpsLap[0]) / 1000.0
+    }
+
+    /**
+     * 最新速度(km/h)
+     * aveSize      移動平均のデータサイズ(1以上)
+     * return       速度(km/h)
+     */
+    fun lastSpeed(aveSize: Int = 1): Double {
+        val last = mGpsPointData.lastIndex
+        if (1 < last) {
+            val st = max(last - aveSize + 1, 2)
+            var sum = 0.0
+            for (i in st..last) {
+                val distance = klib.cordinateDistance(mGpsPointData[last - 1], mGpsPointData[last])   //  (km)
+                val lap = (mGpsLap[last] - mGpsLap[last - 1]) / 1000.0 / 3600.0                       //  (h)
+                sum += if (lap <= 0) 0.0 else distance / lap
+            }
+            return sum / (last - st + 1)
+        } else {
+            return 0.0
+        }
+    }
+
+    /**
      * 歩数(step count)
      */
     fun stepCount(): Int {
@@ -468,16 +501,17 @@ class GpsTrace {
      */
     fun gpsTraceInfo() {
         var listFile = klib.getFileList(mGpsTraceFileFolder, false, "*.csv")
+        listFile = listFile.sortedByDescending { it.lastModified() }
         var fileNameList = mutableListOf<String>()
         if (mTraceOn && klib.existsFile(klib.getPackageNameDirectory(mC) + "/" + GpsService.mGpsFileName))
             fileNameList.add("トレース中データ")
         for (file in listFile)
             fileNameList.add(file.nameWithoutExtension)
-        fileNameList.sortDescending()
-        klib.setMenuDialog(mC, "ファイルリスト", fileNameList, iGpsFileInfo)
+        klib.setMenuDialog(mC, "情報表示ファイルリスト", fileNameList, iGpsFileInfo)
     }
 
     //  選択ファイルのの情報表示
+    //  s       選択ファイル名
     var iGpsFileInfo = Consumer<String> { s ->
         var gpsTrace = GpsTrace()
         if (s.compareTo("トレース中データ") == 0) {
@@ -493,19 +527,23 @@ class GpsTrace {
      */
     fun gpsTraceFileRename() {
         var listFile = klib.getFileList(mGpsTraceFileFolder, false, "*.csv")
+        listFile = listFile.sortedByDescending { it.lastModified() }
         var fileNameList = mutableListOf<String>()
         for (file in listFile)
             fileNameList.add(file.nameWithoutExtension)
-        fileNameList.sortDescending()
-        klib.setMenuDialog(mC, "ファイルリスト", fileNameList, iGpsTraceFileRename)
+        klib.setMenuDialog(mC, "ファイル名変更ファイルリスト", fileNameList, iGpsTraceFileRename)
     }
 
+    //  ファイル名変更処理(ファイル名変更ダイヤログ表示)
+    //  s       選択ファイル名
     var iGpsTraceFileRename = Consumer<String> { s ->
         mTempFileNameList.clear()
         mTempFileNameList.add(s)
         klib.setInputDialog(mC, "データ名変更", s, iGpsTraceFileRenameOperation)
     }
 
+    //  ファイル名の変更処理
+    //  s       変更後のファイル名
     var iGpsTraceFileRenameOperation = Consumer<String> { s ->
         if (0 < mTempFileNameList.size && 0 < s.length) {
             var srcFileName = mGpsTraceFileFolder + "/" + mTempFileNameList[0] + ".csv"
@@ -518,33 +556,31 @@ class GpsTrace {
      */
     fun gpsTraceFileMove() {
         var listFile = klib.getFileList(mGpsTraceFileFolder, false, "*.csv")
-        listFile = listFile.sortedByDescending { it.nameWithoutExtension }
+        listFile = listFile.sortedByDescending { it.lastModified() }
         var fileNameList = Array<String>(listFile.size, { i -> listFile[i].nameWithoutExtension })
         var chkList = BooleanArray(listFile.size)
-        klib.setChkMenuDialog(mC, "ファイルリスト", fileNameList, chkList, iGpsTraceFileMove)
+        klib.setChkMenuDialog(mC, "移動ファイルリスト", fileNameList, chkList, iGpsTraceFileMove)
     }
 
     //  GPSトレースファイル選択表示
+    //  s       選択ファイルのチェックリスト
     var iGpsTraceFileMove = Consumer<BooleanArray> { s ->
         var listFile = klib.getFileList(mGpsTraceFileFolder, false, "*.csv")
-        listFile = listFile.sortedByDescending { it.nameWithoutExtension }
+        listFile = listFile.sortedByDescending { it.lastModified() }
         mTempFileNameList.clear()
         for (i in s.indices) {
             if (s[i])
                 mTempFileNameList.add(listFile[i].nameWithoutExtension)
         }
         setDataMoveDialog(mC, "移動先フォルダ", mGpsTraceFileFolder, iGpsTraceFileMoveOperation)
-//        klib.setInputDialog(this, "移動先フォルダ", "", iGpsTraceFileMoveOperation)
     }
 
-    //  GPSトレースファイルの移動
+    //  GPSトレースファイルの移動処理
+    //  s       移動先フォルダ名
     var iGpsTraceFileMoveOperation = Consumer<String> { s ->
-//        Toast.makeText(this, s, Toast.LENGTH_LONG).show()
-        Log.d(TAG, "iGpsTraceFileMoveOperation: " + mGpsTraceFileFolder + "/" + s)
         var targetFolder =  mGpsTraceFileFolder + "/" + s
         if (klib.mkdir((targetFolder))) {
             for (fileName in mTempFileNameList) {
-                Log.d(TAG,"iGpsTraceFileMoveOperation: " + s + " " + fileName)
                 var sfileName = mGpsTraceFileFolder + "/" + fileName + ".csv"
                 klib.moveFile(sfileName, targetFolder)
             }
@@ -557,21 +593,25 @@ class GpsTrace {
      */
     fun gpsTraceRemove() {
         var listFile = klib.getFileList(mGpsTraceFileFolder, false, "*.csv")
-        listFile = listFile.sortedByDescending { it.nameWithoutExtension }
+        listFile = listFile.sortedByDescending { it.lastModified() }
         var fileNameList = Array<String>(listFile.size, { i -> "" })
         var chkList = BooleanArray(listFile.size)
+        //  リスト作成
         for (i in 0..(listFile.size - 1)) {
             fileNameList[i] = listFile[i].nameWithoutExtension +
                     "  [" + klib.size2String(listFile[i].length().toDouble(),1024.0) + "B]"
             chkList[i] = false
         }
-        klib.setChkMenuDialog(mC, "ファイルリスト", fileNameList, chkList, iGpsFilesRemove)
+        //  削除ファイル選択
+        klib.setChkMenuDialog(mC, "削除ファイルリスト", fileNameList, chkList, iGpsFilesRemove)
     }
 
     //  GPSトレースデータファイルの削除(csvとgpx同時削除)
+    //  s       選択ファイルのチェックリスト
     var iGpsFilesRemove = Consumer<BooleanArray> { s ->
         var listFile = klib.getFileList(mGpsTraceFileFolder, false, "*.csv")
-        listFile = listFile.sortedByDescending { it.nameWithoutExtension }
+        listFile = listFile.sortedByDescending { it.lastModified() }
+        //  ファイル削除
         for (i in 0..(s.size - 1)) {
             if (s[i]) {
                 var gpxfile = listFile[i].path.replace(".csv", ".gpx")
@@ -637,18 +677,22 @@ class GpsTrace {
     }
 
     //  出力先フォルダを選択または入力
+    //  s       ファイルのチェックリスト
     var iGpsTraceExport = Consumer<BooleanArray> { s ->
         var listFile = klib.getFileList(mGpsTraceFileFolder, false, "*.csv")
         listFile = listFile.sortedByDescending { it.nameWithoutExtension }
+        //  選択ファイルリスト作成
         mTempFileNameList.clear()
         for (i in s.indices) {
             if (s[i])
                 mTempFileNameList.add(listFile[i].nameWithoutExtension)
         }
+        //  出力先フォルダ選択
         klib.folderSelectDialog(mC, mGpsTraceFileFolder, iGpsTraceExportOperation)
     }
 
     //  選択されたトレースデータをGPXファイルに変換
+    //  s       出力先フォルダ
     var iGpsTraceExportOperation = Consumer<String> { s ->
 //        Toast.makeText(this, s, Toast.LENGTH_LONG).show()
         Log.d(TAG, "iGpsTraceExportOperation: " + s)

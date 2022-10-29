@@ -26,12 +26,12 @@ class MapView(context: Context,var mMapData: MapData): View(context) {
     var mGpsTrace = GpsTrace()              //  GPSトレース実行中のデータ
     var mGpsDataList = GpsDataList()        //  GPSデータ
     var mElevator = 0.0                     //  標高値(Mainから設定)
-    var mColor = ""
-    var mComment = ""
+    var mLastSpeedAveSize = 16              //  GPSトレース速度の移動平均データ数(表示用)
+    var mCenterColor = ""                   //  中心の色(凡例で使用)
+    var mComment = ""                       //  コメント表示(凡例データなどせ)
+    var mInfoTextSize = 32.0                //  画面左上の情報表示文字サイズ
     var mDispDateTime = mutableListOf<LocalDateTime>()
     var mDateTimeFormat = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss")
-    var mDateTime = ""
-    var mDateTimeForcst = ""
 
     var klib = KLib()
     val kdraw = KDraw()
@@ -60,6 +60,8 @@ class MapView(context: Context,var mMapData: MapData): View(context) {
         drawCross(canvas)
         //  座標と標高の表示
         drawCoordinates(canvas, mMapData)
+        //  縮尺表示
+        drawScaler()
     }
 
     //  再表示
@@ -83,29 +85,36 @@ class MapView(context: Context,var mMapData: MapData): View(context) {
             ele = mGpsTrace.mGpsLastElevator    //  標高(m)
             type = "GPS"
         }
-        coordeMsg += " 標高 " + "%,4.1f m".format(ele) + "(" + type + ") 色 " + mColor
+        coordeMsg += " 標高 " + "%,4.1f m".format(ele) + "(" + type + ") 色 " + mCenterColor
 
         kdraw.mCanvas = canvas
         kdraw.setColor("Blue")
-        kdraw.setTextSize(32.0)
+        kdraw.setTextSize(mInfoTextSize)
         kdraw.drawTextWithBox(coordeMsg, PointD(x.toDouble(), y.toDouble()))
 
         //  GPSトレース中の距離と歩数の表示
         if (type.compareTo("GPS") == 0 && 0 < mGpsTrace.mGpsPointData.size) {
             var moveMsg = " 移動距離 " + "%,.2f km".format(mGpsTrace.totalDistance())
+            val min = mGpsTrace.lastLap() / 60.0
+            if (min / 60.0 < 1.0 )
+                moveMsg += " 経過時間 " + "%,.1f min".format(min)
+            else
+                moveMsg += " 経過時間 " + "%d h".format((min / 60).toInt()) + " %2d min".format((min % 60).toInt())
+            moveMsg += " 速度 " + "%,.2f km/h".format(mGpsTrace.lastSpeed(mLastSpeedAveSize))
             moveMsg += " 歩数 " + mGpsTrace.stepCount().toString()
-            y += 40f
+            y += mInfoTextSize.toFloat() + 10f
             kdraw.drawTextWithBox(moveMsg, PointD(x.toDouble(), y.toDouble()))
         }
         //  色凡例を表示
         if (0 < mComment.length) {
-            y += 40f
+            y += mInfoTextSize.toFloat() + 10f
             kdraw.drawTextWithBox(mComment, PointD(x.toDouble(), y.toDouble()))
         }
+        //  気象データなどの測定時間と予想時刻の表示
         if (1 < mDispDateTime.size) {
-            y += 40f
+            y += mInfoTextSize.toFloat() + 10f
             kdraw.drawTextWithBox("測定" + mDispDateTime[0].format(mDateTimeFormat), PointD(x.toDouble(), y.toDouble()))
-            y += 40f
+            y += mInfoTextSize.toFloat() + 10f
             kdraw.drawTextWithBox("予測" + mDispDateTime[1].format(mDateTimeFormat), PointD(x.toDouble(), y.toDouble()))
         }
     }
@@ -118,6 +127,26 @@ class MapView(context: Context,var mMapData: MapData): View(context) {
         var ctr = Point(mWidth / 2, mHeight / 2)
         canvas.drawLine((ctr.x - 50).toFloat(), ctr.y.toFloat(), (ctr.x + 50).toFloat(), ctr.y.toFloat(), paint)
         canvas.drawLine(ctr.x.toFloat(), (ctr.y - 50).toFloat(), ctr.x.toFloat(), (ctr.y + 50).toFloat(), paint)
+    }
+
+    //  縮尺表示
+    fun drawScaler() {
+        kdraw.setColor("Green")
+        kdraw.mStrokWidth = 10f
+        val l = 0.4
+        val epx = 0.95
+        val epy = 0.98
+        val sp = PointD(mMapData.mView.width * epx, mMapData.mView.height * epy)
+        var ep = PointD(mMapData.mView.width * (epx - l), mMapData.mView.height * epy)
+        val scp = mMapData.screen2Coordinates(sp)
+        val ecp = mMapData.screen2Coordinates(ep)
+        val ls = klib.cordinateDistance(scp, ecp)
+        val mls = klib.floorStepSize(ls)
+        ep.x = mMapData.mView.width * (epx - l * mls / ls)
+        kdraw.drawLine(sp, ep)
+        kdraw.setTextSize(mInfoTextSize)
+        kdraw.setColor("Black")
+        kdraw.drawText("%.2f km".format(mls), PointD(mMapData.mView.width * (epx - l * mls / ls * 0.75), mMapData.mView.height * epy))
     }
 
     //  セルにデータを設定
