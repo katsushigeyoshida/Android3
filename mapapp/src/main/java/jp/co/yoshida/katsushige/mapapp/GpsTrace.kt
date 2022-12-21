@@ -407,8 +407,8 @@ class GpsTrace {
             val st = max(last - aveSize + 1, 2)
             var sum = 0.0
             for (i in st..last) {
-                val distance = klib.cordinateDistance(mGpsPointData[last - 1], mGpsPointData[last])   //  (km)
-                val lap = (mGpsLap[last] - mGpsLap[last - 1]) / 1000.0 / 3600.0                       //  (h)
+                val distance = klib.cordinateDistance(mGpsPointData[i - 1], mGpsPointData[i])   //  (km)
+                val lap = (mGpsLap[i] - mGpsLap[i - 1]) / 1000.0 / 3600.0                       //  (h)
                 sum += if (lap <= 0) 0.0 else distance / lap
             }
             return sum / (last - st + 1)
