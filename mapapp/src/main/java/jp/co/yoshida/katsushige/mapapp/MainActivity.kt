@@ -730,19 +730,19 @@ class MainActivity : AppCompatActivity() {
                 AlertDialog.Builder(this)
                     .setTitle("終了確認")
                     .setMessage("GPSトレースを保存しますか?")
-                    .setPositiveButton("保存終了", {
-                            dialog, which ->
-                        //  GPS OFF
-                        btGpsOn.setBackgroundColor(Color.rgb(100, 50, 200))   //  紫(off)
-                        mGpsTrace.end()
-                        GpsServiceEnd()
-                    })
-                    .setNeutralButton("保存なし終了",{
+                    .setPositiveButton("保存なし終了",{
                             dialog, which ->
                         //  GPSデータを保存せずに終了
                         btGpsOn.setBackgroundColor(Color.rgb(100, 50, 200))   //  紫(off)
                         mGpsTrace.end()
                         GpsServiceEnd(false)
+                    })
+                    .setNeutralButton("保存終了", {
+                            dialog, which ->
+                        //  GPS OFF
+                        btGpsOn.setBackgroundColor(Color.rgb(100, 50, 200))   //  紫(off)
+                        mGpsTrace.end()
+                        GpsServiceEnd()
                     })
                     .setNegativeButton("キャンセル", {
                             dialog, which ->
