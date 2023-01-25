@@ -27,7 +27,6 @@ import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.time.LocalDate
 import java.time.LocalDateTime
-import java.time.LocalTime
 import java.time.temporal.ChronoUnit
 import java.util.*
 import kotlin.math.*
@@ -1557,19 +1556,21 @@ class KLib {
      *  対応形式
      *  "yyyy-MM-dd'T'HH:mm:ss'Z'"
      *  "yyyy-MM-dd HH:mm:ss"
+     *  date              日付文字列
+     *  timeZoneOffset   タイムゾーンオフセット値(日本 9)
      */
-    fun string2Date(date: String): Date {
+    fun string2Date(date: String, timeZoneOffset: Int = 9): Date {
         var df = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
         if (19 < date.length && date[19] == 'Z') {
             //  標準時間
             df = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'")
             val dateTime = df.parse(date)
-            return Date(dateTime.getTime() + (9 * 60 * 60 * 1000))
+            return Date(dateTime.getTime() + (timeZoneOffset * 60 * 60 * 1000))
         } else if (23 < date.length && date[23] == 'Z') {
             //  「山と高原地図対応
             df = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.sss'Z'")
             val dateTime = df.parse(date)
-            return Date(dateTime.getTime() + (9 * 60 * 60 * 1000))
+            return Date(dateTime.getTime() + (timeZoneOffset * 60 * 60 * 1000))
         } else {
             return df.parse(date)
         }
@@ -1578,11 +1579,12 @@ class KLib {
     /**
      * Dateをフォーマットにしたがって文字列に変換する
      * 例: date2String(date, "yyyy/MM/dd HH:mm:ss")
-     * date     Date時間
-     * format   変換フォーマット
+     *  date             Date()時間
+     *  format           変換フォーマット
+     *  timeZoneOffset   タイムゾーンオフセット値(日本 9)
      */
-    fun date2String(date: Date, format: String): String {
-        val dateTime = Date(date.getTime() + (9 * 60 * 60 * 1000))
+    fun date2String(date: Date, format: String, timeZoneOffset: Int = 9): String {
+        val dateTime = Date(date.getTime() + (timeZoneOffset * 60 * 60 * 1000))
         val df = SimpleDateFormat(format)
         return df.format(dateTime)
     }
@@ -2006,6 +2008,29 @@ class KLib {
     }
 
     /**
+     * 内部メモリのディレクトリの取得
+     * @return          ディレクトリ
+     */
+    fun getInternalStrage(): String {
+        return Environment.getExternalStorageDirectory().absolutePath
+    }
+
+    /**
+     * SDカードのディレクトリの取得
+     * @param context   コンテキスト
+     * @return          ディレクトリ
+     */
+    fun getExternalStrage(context: Context?): String {
+        val dirList = YLib.getSdCardFilesDirPathListForLollipop(context)
+        if (0 < dirList.size) {
+            var externalDir = dirList[0]
+            externalDir = externalDir.substring(0, indexOf(externalDir, "/", 3))
+            return externalDir
+        }
+        return ""
+    }
+
+    /**
      * ファイル名の抽出
      * path         パス名
      * @return      ファイル名
@@ -2252,7 +2277,7 @@ class KLib {
             .setTitle(title)
             .setMessage(message)
             .setPositiveButton( "OK") {
-                    dialog, which -> operation.accept(message)
+                    dialog, which -> operation.accept("OK")
             }
             .setNegativeButton( "Cancel") {
                     dialog, which ->

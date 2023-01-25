@@ -109,24 +109,28 @@ public class DataListActivity extends AppCompatActivity
         if (!gilib.getGpxDataContinue()) {
             String gpxFileName = gilib.getDataFileName();
             if (7 < gpxFileName.length()) {
-                String key = gilib.findIndexFile(gpxFileName.substring(0, 8) , gpxFileName, "GPX", mDataFormat, mKeyData, mIndexDirectory);
-                String[] data = gilib.getGpxData(gilib.getGpxPath(gpxFileName), mDataFormat);
-                if (key.length() < 1) {
-                    //  新規作成
-                    if (data != null)
-                        gilib.registIndexFile(data, mDataFormat, mKeyData, mIndexDirectory);
-                } else {
-                    //  既存データの更新(更新しないデータは空白にする)
-                    if (data != null) {
-                        data[mListData.getTitlePos("歩数")] = "";
-                        data[mListData.getTitlePos("分類")] = "";
-                        data[mListData.getTitlePos("GPX")] = "";
-                        data[mListData.getTitlePos("タイトル")] = "";
-                        data[mListData.getTitlePos("メモ")] = "";
-                        gilib.updateIndexFile(key, data, mDataFormat, mKeyData, mIndexDirectory);
+                try {
+                    String key = gilib.findIndexFile(gpxFileName.substring(0, 8), gpxFileName, "GPX", mDataFormat, mKeyData, mIndexDirectory);
+                    String[] data = gilib.getGpxData(gilib.getGpxPath(gpxFileName), mDataFormat);
+                    if (key.length() < 1) {
+                        //  新規作成
+                        if (data != null)
+                            gilib.registIndexFile(data, mDataFormat, mKeyData, mIndexDirectory);
+                    } else {
+                        //  既存データの更新(更新しないデータは空白にする)
+                        if (data != null) {
+                            data[mListData.getTitlePos("歩数")] = "";
+                            data[mListData.getTitlePos("分類")] = "";
+                            data[mListData.getTitlePos("GPX")] = "";
+                            data[mListData.getTitlePos("タイトル")] = "";
+                            data[mListData.getTitlePos("メモ")] = "";
+                            gilib.updateIndexFile(key, data, mDataFormat, mKeyData, mIndexDirectory);
+                        }
                     }
+                    gilib.clearDataFileName();
+                } catch (Exception e) {
+                    Toast.makeText(this, "Continue Erroe: "+e.getMessage(), Toast.LENGTH_LONG).show();
                 }
-                gilib.clearDataFileName();
             }
         }
 

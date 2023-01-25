@@ -3,6 +3,7 @@ package jp.co.yoshida.katsushige.tablegraph
 //import androidx.core.view.isVisible
 //import kotlinx.android.synthetic.main.activity_main.*
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.MotionEvent
@@ -77,7 +78,8 @@ class MainActivity : AppCompatActivity() {
 
         title = this.resources.getString(R.string.app_name)
         //  パーミッションチェック
-        klib.checkStragePermission(this)
+//        klib.checkStragePermission(this)
+        chkFileAccessPermission()   //  ファイルアクセスのパーミッション設定
         //  グラフィック表
         mTableView = TableSheetView(this)
 
@@ -107,6 +109,34 @@ class MainActivity : AppCompatActivity() {
         llTableSheet.addView(mTableView)
         //  初期化
         init()
+    }
+
+
+    /**
+     *  ファイルアクセスのパーミッションチェック
+     */
+    fun chkFileAccessPermission(){
+        if (30<= Build.VERSION.SDK_INT)
+            chkManageAllFilesAccess()
+        else
+            klib.checkStragePermission(this)
+    }
+
+    /**
+     *  MANAGE_ALL_FILES_ACCESS_PERMISSIONの確認(Android11 API30以上)
+     */
+    fun chkManageAllFilesAccess() {
+        var file = File("/storage/emulated/0/chkManageAllFilesAccess.txt")
+        Log.d(TAG,"chkManageAllFilesAccess:")
+        try {
+            if (file.createNewFile()) {
+                Log.d(TAG,"chkManageAllFilesAccess: create " + "OK")
+            }
+        } catch (e: Exception) {
+            Log.d(TAG,"chkManageAllFilesAccess: create " + "NG")
+            val intent = Intent("android.settings.MANAGE_ALL_FILES_ACCESS_PERMISSION")
+            startActivity(intent)
+        }
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {

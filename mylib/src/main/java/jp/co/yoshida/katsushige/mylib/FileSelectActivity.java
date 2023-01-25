@@ -3,6 +3,7 @@ package jp.co.yoshida.katsushige.mylib;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.annotation.TargetApi;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -10,6 +11,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.graphics.Typeface;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.util.Log;
@@ -31,6 +33,7 @@ import java.text.DateFormat;
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -77,7 +80,7 @@ public class FileSelectActivity extends AppCompatActivity
     private boolean mFileDispMode = true;               //  ファイル表示モード
     private boolean mMultiSelectMode = false;           //  複数選択
     private String[] FileOperationTitle ={
-            "コピー","移動","削除","フォルダ作成","ファイル名変更","ソート","お気に入り","お気に入り登録"};
+            "内蔵メモリ","SDカード","コピー","移動","削除","フォルダ作成","ファイル名変更","ソート","お気に入り","お気に入り登録"};
     private String[] mSortNameList ={
             "名前順","日付順","サイズ順","名前逆順","日付逆順","サイズ逆順"};
     enum SortType {name, date, size, revname, revdate, revsize};
@@ -90,7 +93,7 @@ public class FileSelectActivity extends AppCompatActivity
     private FileFilter mFileFilter;             //  ファイル検索のフィルタ(mFilterPatternを設定)
     private String mSourceFile = "";            //  移動元/コピー元ファイル名
     private String mDestDir = "";               //  移動先/コピー先ディレクトリ名
-    enum FileOperation { non, copy, move, delete, rename, mkdir ; }
+    enum FileOperation { non, innerStrage, externalStrage, copy, move, delete, rename, mkdir ; }
     FileOperation mFileOpe = FileOperation.non;
 
     private static FileSelectDB mDbAdapter;     //  ファイル選択データベース
@@ -291,13 +294,20 @@ public class FileSelectActivity extends AppCompatActivity
         //	ファイル一覧のソートタイプ
         mSortType = GetPrefernceSortType();
         //  初期ディレクトリの設定
-        mDir = mExternalStorageDir = Environment.getExternalStorageDirectory().toString();
+        mExternalStorageDir = Environment.getExternalStorageDirectory().toString();
         //	前回のディレクトリを取り出す
         mDir = GetPreferncePreFolder();
-
+        try {
+            File file = new File(mDir);
+            if (!file.exists()) {
+                //  指定ディレクトリが存在しない場合外部ストレージを参照
+                mDir = mExternalStorageDir;
+            }
+        } catch(Exception e) {
+            Toast.makeText(this, "Init エラー"+e.getMessage(), Toast.LENGTH_LONG).show();
+            mDir = mExternalStorageDir;
+        }
     }
-
-
 
     /**
      * ファイル操作ダイヤログ
@@ -312,7 +322,20 @@ public class FileSelectActivity extends AppCompatActivity
                         Log.d(TAG, "SetModeDialog: "+FileOperationTitle[which]);
                         Toast.makeText(FileSelectActivity.this, FileOperationTitle[which], Toast.LENGTH_SHORT).show();
                         mFileOpe = FileOperation.non;
-                        if (FileOperationTitle[which].compareTo("コピー")==0) {
+                        if (FileOperationTitle[which].compareTo("内蔵メモリ")==0) {
+                            mFileOpe = FileOperation.innerStrage;
+                            mDir = ylib.getInternalStrage();
+//                            mDir = "/storage/emulated/0/";
+                            getFileList(mFileDispMode);
+                        } else if (FileOperationTitle[which].compareTo("SDカード")==0) {
+                            mFileOpe = FileOperation.externalStrage;
+                            mDir = ylib.getExternalStrage(getApplicationContext());
+                            if (mDir.length() <= 0) {
+                                Toast.makeText(FileSelectActivity.this, "SDカードがありません", Toast.LENGTH_LONG).show();
+                                mDir = ylib.getInternalStrage();
+                            }
+                            getFileList(mFileDispMode);
+                        } else if (FileOperationTitle[which].compareTo("コピー")==0) {
                             mFileOpe = FileOperation.copy;
                             nextFileSelect();
                         } else if (FileOperationTitle[which].compareTo("移動")==0) {
@@ -564,7 +587,8 @@ public class FileSelectActivity extends AppCompatActivity
                 mDir = mExternalStorageDir;
                 file = new File(mDir);
                 if (!file.exists()) {
-                    mDir = "/";
+//                    mDir = "/";
+                    mDir = Environment.getExternalStorageDirectory().getAbsolutePath();
                     file = new File(mDir);
                 }
             }
@@ -598,6 +622,10 @@ public class FileSelectActivity extends AppCompatActivity
             mListView.setAdapter(mAdapter);
         } catch (Exception e) {
             Toast.makeText(this, "get File List エラー"+e.getMessage(), Toast.LENGTH_LONG).show();
+            if (mDir.compareTo(mExternalStorageDir)!=0) {
+                mDir = mExternalStorageDir;
+                getFileList(mFileDispMode);     //  ファイルリストの取得
+            }
         }
     }
 
@@ -836,4 +864,5 @@ public class FileSelectActivity extends AppCompatActivity
             return fileName + " - " + date + " " + (dir?"<Directory>":"<File>");
         }
     }
+
 }

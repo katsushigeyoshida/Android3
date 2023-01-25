@@ -1,6 +1,7 @@
 package jp.co.yoshida.katsushige.mylib;
 
 import android.Manifest;
+import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -13,6 +14,7 @@ import android.location.Location;
 import android.media.AudioManager;
 import android.media.ToneGenerator;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Environment;
 import android.preference.PreferenceManager;
 import android.util.Log;
@@ -48,6 +50,7 @@ import java.util.Locale;
 import java.util.TimeZone;
 
 /**
+ * --- ファイル操作  ---
  * setFilnameDateFormat()   makeFileName()で使用する日付のフォーマットを設定 default :  "yyyyMMdd_HHmmss"
  * setFilnameDateFormat2()  makeFileName2()で使用する日付のフォーマットを設定 default :  "yyyyMMdd"
  * getName()    ファイル名の抽出
@@ -67,6 +70,7 @@ import java.util.TimeZone;
  * mkdir()  ディレクトリの作成
  * renameWithoutDir()   ディレクトリを除いた新しいファイル名の作成(ファイルは変更しない)
  * rename() ファイル名の変更
+ * getSdCardFilesDirPathListForLollipop()   SDカードのぱす
  * getPackageNameWithoutExt()   拡張子なしのパッケージ名の取得
  * getPackageNameDirectory()    パッケージ名を用いたディレクトリの作成と取得
  * setSaveDirectory()   データ保存ディレクトリの設定(permissionの設定が必要)
@@ -99,13 +103,20 @@ import java.util.TimeZone;
  * writeBinaryFile()    バイナリィファイルの書き込み
  * readBinaryFile() バイナリィファイル読み込み
  *
+ * ---  システム操作  ---
  * checkPermission()    strage permissionの確認
  * beep()   ビープ音を鳴らす
  * sleep()  指定ミリ秒実行を止めるメソッド
+ *
+ * ---  文字列操作 ---
  * WcMatch()    ファイル名をワイルドカードでマッチングする
  * splitCsvString() カンマセパレータで文字列を分解する "で囲まれている場合は"内の文字列を抽出する
  * getToken()   計算式の文字列を数値と演算子と関数名に分解してLISTを作る 区切りとなる文字は + - * / % ^ ( ) , [ ]
+ * strControlCodeCnv()  改行コードを文字列に置き換える(\n → \\\n)
+ * strControlCodeRev()  改行文字列を改行コードに戻す(\\\n → \n)
+ * expandArray()    文字配列を一つ拡張して文字を追加する
  *
+ * ---  ダイヤログ表示 ---
  * messageDialog()  メッセージダイヤログを表示する
  * messageDialog()  メッセージをダイヤログ表示し、OKの時に指定の関数にメッセージの内容を渡して処理する
  * inputDialog()    文字入力ダイヤログ
@@ -114,13 +125,13 @@ import java.util.TimeZone;
  * fileSelectDialog()   ファイル選択ダイヤログ(コンテキストなし)
  * fileComparator   ファイルリストのソートコンパレータ [] のディレクトリを先にし文字でソート
  * setMenuDialog()  メニュー選択ダイヤログ
+ *
+ * ---  システム操作  ---
  * executeFile()    ローカルファイルを関連付けで開く
  * webDisp()    Webを表示する URLで開く
  * getAddress() 緯度経度から住所を求める getAddressの読み出しにはスレッドを利用しないといけない
- * strControlCodeCnv()  改行コードを文字列に置き換える(\n → \\\n)
- * strControlCodeRev()  改行文字列を改行コードに戻す(\\\n → \n)
- * expandArray()    文字配列を一つ拡張して文字を追加する
  *
+ * ---  プリファレンス操作 ---
  * getBoolPreferences() プリファレンスから論理値を取得
  * setBoolPreferences() プリファレンスに論理値を設定
  * getStrPreferences()  プリファレンスから文字列の値を取得
@@ -132,6 +143,7 @@ import java.util.TimeZone;
  * getFloatPreferences()    プリファレンスから数値(float)を取得
  * setFloatPreferences()    プリファレンスに数値(float)を設定
  *
+ * ---  数値処理  ---
  * graphRangeMin()  グラフ表示のための最小値を求める
  * graphRangeMax()  グラフ表示のための最大値を求める
  * magnitudeNum()   桁を数値で求める (20.23 →　10, 0.23 → 0.1
@@ -142,6 +154,7 @@ import java.util.TimeZone;
  * roundStr()   数値丸め処理(小数点以下桁数の設定)
  * roundStr2()  数値丸め処理(小数点以下桁数の設定) 小数点以下桁数が0以上の場合、桁数分で数値を捨てる(誤差調整)
  *
+ * --- 数値文字操作---
  * str2Double() 文字列を実数に変換 文字列が数値でない場合は0を返す
  * str2Integer()    字列を整数に変換 文字列が数値でない場合は0を返す
  * isFloat()    文字列が数値かどうかの判定
@@ -153,10 +166,12 @@ import java.util.TimeZone;
  * setDigitSeparator()  文字列が数値の場合、桁区切り(3桁)を入れる
  * cnvDMS2Deg() 度分秒表記(WGS-84)を度表記に変換する
  *
+ * ---  数値計算  ---
  * distance()   球面上の2点間座標の距離
  * azimuth()    球面上の2点間座標の方位
  * azimuth2()   球面上の2点間座標の方位
  *
+ * ---  日時処理---
  * Sec2Time()   秒時間を時分秒にフォーマット(hh:mm:ss)する
  * getTimeMills()   日付(yyyy/mm/dd)と時間(hh:mm:ss)からUTCミリ秒を取得
  * TimeMills2Str()  UTCミリ秒をString形式に変換
@@ -185,6 +200,7 @@ import java.util.TimeZone;
  * locSpeed()   Locationデータによる2点間での速度(km/h)
  * locLapTime() 経過時間(msec)
  *
+ * ---  バイナリ処理  ---
  * bitOn()  nビット目の値を1にする
  * bitOff()  nビット目の値を0にする
  * bitRevers()  nビット目を反転する
@@ -232,6 +248,30 @@ public class YLib {
      */
     public void setFilnameDateFormat2(String form) {
         mFileNameDateFormat2 = form;
+    }
+
+
+    /**
+     * 内部メモリのディレクトリの取得
+     * @return          ディレクトリ
+     */
+    public String getInternalStrage() {
+        return Environment.getExternalStorageDirectory().getAbsolutePath();
+    }
+
+    /**
+     * SDカードのディレクトリの取得
+     * @param context   コンテキスト
+     * @return          ディレクトリ
+     */
+    public String getExternalStrage(Context context) {
+        List<String> dirList = YLib.getSdCardFilesDirPathListForLollipop(context);
+        if (0 < dirList.size()) {
+            String externalDir = dirList.get(0);
+            externalDir = externalDir.substring(0, indexOf(externalDir, '/', 3));
+            return externalDir;
+        }
+        return "";
     }
 
     /**
@@ -465,6 +505,45 @@ public class YLib {
         if (file.exists())
             return file.renameTo(newfile);
         return false;
+    }
+
+
+    /**
+     * SDカードのfilesディレクトリパスのリストを取得する。
+     * Android5.0以上対応。
+     *  https://qiita.com/h_yama37/items/11b8658b2de9625200aa
+     *
+     * @param context
+     * @return SDカードのfilesディレクトリパスのリスト
+     */
+    @TargetApi(Build.VERSION_CODES.LOLLIPOP)
+    public static List<String> getSdCardFilesDirPathListForLollipop(Context context) {
+        List<String> sdCardFilesDirPathList = new ArrayList<>();
+
+        // getExternalFilesDirsはAndroid4.4から利用できるAPI。
+        // filesディレクトリのリストを取得できる。
+        File[] dirArr = context.getExternalFilesDirs(null);
+
+        for (File dir : dirArr) {
+            if (dir != null) {
+                String path = dir.getAbsolutePath();
+                Log.d(TAG, "getSdCardFilesDirPathListForLollipop: "+path);
+                // isExternalStorageRemovableはAndroid5.0から利用できるAPI。
+                // 取り外し可能かどうか（SDカードかどうか）を判定している。
+                if (Environment.isExternalStorageRemovable(dir)) {
+
+                    // 取り外し可能であればSDカード。
+                    if (!sdCardFilesDirPathList.contains(path)) {
+                        sdCardFilesDirPathList.add(path);
+                        Log.d(TAG, "getSdCardFilesDirPathListForLollipop: add "+path);
+                    }
+
+                } else {
+                    // 取り外し不可能であれば内部ストレージ。
+                }
+            }
+        }
+        return sdCardFilesDirPathList;
     }
 
     /**
@@ -1380,6 +1459,24 @@ public class YLib {
         System.arraycopy(array, 0, tempArray, 0, array.length);
         tempArray[tempArray.length-1] = addtext;
         return tempArray;
+    }
+
+    /**
+     * 文字列からn個目の文字位置を求める
+     * @param str       文字列
+     * @param ch        検索文字
+     * @param n         n個目
+     * @return          文字位置
+     */
+    public int indexOf(String str, char ch, int n) {
+        int pos = 0;
+        while (0 <= (pos = str.indexOf(ch, pos))) {
+            n--;
+            if (n <= 0)
+                break;
+            pos++;
+        }
+        return pos;
     }
 
     /**

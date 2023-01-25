@@ -92,6 +92,10 @@ public class GpsOnService extends Service
         ylib = new YLib();
         //	データ保存ディレクトリの設定
         mSaveDirectory = ylib.getStrPreferences("SAVEDIRECTORY", this);
+        if (!ylib.isDirectory(mSaveDirectory)) {
+            mSaveDirectory = ylib.getPackageNameDirectory();
+            ylib.mkdir(mSaveDirectory);
+        }
         gilib = new GpsInfoLib(this, mSaveDirectory);
         GetLocationPreferences();                               //  GPS設定値の更新(GPS取得間隔)
 
@@ -277,19 +281,16 @@ public class GpsOnService extends Service
     @Override
     public void onStatusChanged(String s, int i, Bundle bundle) {
         Log.d(TAG, "onStatusChanged:");
-
     }
 
     @Override
     public void onProviderEnabled(String s) {
         Log.d(TAG, "onProviderEnabled:");
-
     }
 
     @Override
     public void onProviderDisabled(String s) {
         Log.d(TAG, "onProviderDisabled:");
-
     }
 
     @Override
@@ -321,6 +322,7 @@ public class GpsOnService extends Service
             Toast.makeText(this, "GPSが設定されていません", Toast.LENGTH_LONG).show();
             return false;
         }
+        Log.d(TAG,"putLocationData: "+mGpxFile.getGpxLogCount());
         //  GPS LocationManagerの設定値更新
         if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
                 checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -364,11 +366,14 @@ public class GpsOnService extends Service
      * @param discription       説明補足内容
      */
     private void ShowNotification(Intent intent,  int requestCode, String title, String discription) {
+        Log.d(TAG, "ShowNotification" );
         Context context = getApplicationContext();
         String channelId = "default";
 
         PendingIntent pendingIntent =       //  intentを予約して指定のタイミングで発行する(Notificationを起動させるため)
-                PendingIntent.getActivity(context, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+//                PendingIntent.getActivity(context, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+                PendingIntent.getActivity(context, requestCode, intent,
+                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         NotificationManager notificationManager =
                 (NotificationManager)context.getSystemService(context.NOTIFICATION_SERVICE);
         //  通知チャンネルの設定(IMPORTANCE_DEFAULT(通知,音・バイブレーションあり),IMPORTANCE_LOW(通知あり、音・バイブレーションなし)

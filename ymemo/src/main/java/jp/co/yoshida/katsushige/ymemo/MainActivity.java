@@ -8,6 +8,7 @@ import androidx.core.util.Consumer;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.text.InputType;
@@ -24,6 +25,7 @@ import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.Toast;
 
+import java.io.File;
 import java.util.List;
 
 import jp.co.yoshida.katsushige.mylib.FileSelectActivity;
@@ -83,7 +85,8 @@ public class MainActivity extends AppCompatActivity
         setContentView(R.layout.activity_main);
         setTitle("ドキュメント管理");
         ylib = new YLib(this);
-        ylib.checkStragePermission(this);
+        chkFileAccessPermission();                  //  ファイルアクセスのパーミッションチェック
+//        ylib.checkStragePermission(this);
         init();
 
         mSaveDirectory = ylib.setSaveDirectory(getPackageName().substring(getPackageName().lastIndexOf('.')+1));
@@ -114,6 +117,33 @@ public class MainActivity extends AppCompatActivity
                 return true;    // 戻り値をtrueにするとOnClickイベントは発生しない
             }
         });
+    }
+
+    /**
+     *  ファイルアクセスのパーミッションチェック
+     */
+    private void chkFileAccessPermission() {
+        if (30<= Build.VERSION.SDK_INT)
+            chkManageAllFilesAccess();
+        else
+            ylib.checkStragePermission(this);
+    }
+
+    /**
+     *  MANAGE_ALL_FILES_ACCESS_PERMISSIONの確認(Android11 API30以上)
+     */
+    private void chkManageAllFilesAccess() {
+        File file = new File("/storage/emulated/0/chkManageAllFilesAccess.txt");
+        Log.d(TAG,"chkManageAllFilesAccess:");
+        try {
+            if (file.createNewFile()) {
+                Log.d(TAG,"chkManageAllFilesAccess: create " + "OK");
+            }
+        } catch (Exception e) {
+            Log.d(TAG,"chkManageAllFilesAccess: create " + "NG");
+            Intent intent = new Intent("android.settings.MANAGE_ALL_FILES_ACCESS_PERMISSION");
+            startActivity(intent);
+        }
     }
 
     @Override

@@ -27,6 +27,7 @@ import android.location.LocationManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.Display;
@@ -39,6 +40,7 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -151,13 +153,17 @@ public class GpsInfoActivity extends AppCompatActivity
         setContentView(R.layout.activity_gps_info);
 
         ylib = new YLib(this);
-        ylib.checkStragePermission(this);         //  ストレージのパーミッションチェック
+        chkFileAccessPermission();                  //  ファイルアクセスのパーミッションチェック
+//        ylib.checkStragePermission(this);         //  ストレージのパーミッションチェック
+//        val extStrageDir = Environment.getExternalStorageDirectory()
+
         mDataDirectory = ylib.getPackageNameDirectory();
         mIndexDirectory = mDataDirectory + "/Memo";
         if (!ylib.mkdir(mIndexDirectory))
             mIndexDirectory = mDataDirectory;
         Log.d(TAG,"onCreate: "+ mDataDirectory);
 
+        ylib.setStrPreferences(mDataDirectory, "SAVEDIRECTORY", this);
         gilib = new GpsInfoLib(this, mDataDirectory);
         getPreference();                        //  前回値の取得
         initScreen();
@@ -183,6 +189,33 @@ public class GpsInfoActivity extends AppCompatActivity
         setAppTitle();
 
         displayStatus();
+    }
+
+    /**
+     *  ファイルアクセスのパーミッションチェック
+     */
+    private void chkFileAccessPermission() {
+        if (30<= Build.VERSION.SDK_INT)
+            chkManageAllFilesAccess();
+        else
+            ylib.checkStragePermission(this);
+    }
+
+    /**
+     *  MANAGE_ALL_FILES_ACCESS_PERMISSIONの確認(Android11 API30以上)
+     */
+    private void chkManageAllFilesAccess() {
+        File file = new File("/storage/emulated/0/chkManageAllFilesAccess.txt");
+        Log.d(TAG,"chkManageAllFilesAccess:");
+        try {
+            if (file.createNewFile()) {
+                Log.d(TAG,"chkManageAllFilesAccess: create " + "OK");
+            }
+        } catch (Exception e) {
+            Log.d(TAG,"chkManageAllFilesAccess: create " + "NG");
+            Intent intent = new Intent("android.settings.MANAGE_ALL_FILES_ACCESS_PERMISSION");
+            startActivity(intent);
+        }
     }
 
     @Override

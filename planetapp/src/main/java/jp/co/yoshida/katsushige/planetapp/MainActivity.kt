@@ -1,5 +1,7 @@
 package jp.co.yoshida.katsushige.planetapp
 
+import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.MotionEvent
@@ -12,6 +14,7 @@ import androidx.core.view.isVisible
 import jp.co.yoshida.katsushige.mylib.KLib
 import jp.co.yoshida.katsushige.mylib.PointD
 import jp.co.yoshida.katsushige.planetapp.databinding.ActivityMainBinding
+import java.io.File
 import java.time.LocalDateTime
 
 class MainActivity : AppCompatActivity() {
@@ -114,9 +117,10 @@ class MainActivity : AppCompatActivity() {
         mMainSurfaceView = MainSurfaceView(this)
         llPlanetView.addView(mMainSurfaceView)
 
+        chkFileAccessPermission()   //  ファイルアクセスのパーミッション設定
         //  パーミッションチェック(ストレージ)
-        if (!klib.checkStragePermission(this))
-            return
+//        if (!klib.checkStragePermission(this))
+//            return
         //  フォルダの設定
         mDataFolder = klib.getPackageNameDirectory(this) + "/" + mDataFolder
         if (!klib.mkdir(mDataFolder)) {
@@ -156,6 +160,33 @@ class MainActivity : AppCompatActivity() {
         }
 
         init()
+    }
+
+    /**
+     *  ファイルアクセスのパーミッションチェック
+     */
+    fun chkFileAccessPermission(){
+        if (30<= Build.VERSION.SDK_INT)
+            chkManageAllFilesAccess()
+        else
+            klib.checkStragePermission(this)
+    }
+
+    /**
+     *  MANAGE_ALL_FILES_ACCESS_PERMISSIONの確認(Android11 API30以上)
+     */
+    fun chkManageAllFilesAccess() {
+        var file = File("/storage/emulated/0/chkManageAllFilesAccess.txt")
+        Log.d(TAG,"chkManageAllFilesAccess:")
+        try {
+            if (file.createNewFile()) {
+                Log.d(TAG,"chkManageAllFilesAccess: create " + "OK")
+            }
+        } catch (e: Exception) {
+            Log.d(TAG,"chkManageAllFilesAccess: create " + "NG")
+            val intent = Intent("android.settings.MANAGE_ALL_FILES_ACCESS_PERMISSION")
+            startActivity(intent)
+        }
     }
 
     /**

@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.graphics.Color;
 import android.icu.text.SimpleDateFormat;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Vibrator;
@@ -24,6 +25,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -187,7 +189,9 @@ public class MainActivity extends AppCompatActivity
         ycalc = new YCalc();
         ydate= new YDate();
         vib = (Vibrator)this.getSystemService(VIBRATOR_SERVICE);
-        ylib.checkStragePermission(this);
+
+        chkFileAccessPermission();                  //  ファイルアクセスのパーミッションチェック
+//        ylib.checkStragePermission(this);
 
         init();
         initKeyMap();
@@ -200,6 +204,33 @@ public class MainActivity extends AppCompatActivity
         setSaveDirectory();
         setFunctionKey();
         mSubDispayPanel.setText("ボタンを長押しするとヘルプを表示すると思います");
+    }
+
+    /**
+     *  ファイルアクセスのパーミッションチェック
+     */
+    private void chkFileAccessPermission() {
+        if (30<= Build.VERSION.SDK_INT)
+            chkManageAllFilesAccess();
+        else
+            ylib.checkStragePermission(this);
+    }
+
+    /**
+     *  MANAGE_ALL_FILES_ACCESS_PERMISSIONの確認(Android11 API30以上)
+     */
+    private void chkManageAllFilesAccess() {
+        File file = new File("/storage/emulated/0/chkManageAllFilesAccess.txt");
+        Log.d(TAG,"chkManageAllFilesAccess:");
+        try {
+            if (file.createNewFile()) {
+                Log.d(TAG,"chkManageAllFilesAccess: create " + "OK");
+            }
+        } catch (Exception e) {
+            Log.d(TAG,"chkManageAllFilesAccess: create " + "NG");
+            Intent intent = new Intent("android.settings.MANAGE_ALL_FILES_ACCESS_PERMISSION");
+            startActivity(intent);
+        }
     }
 
     public void onClick(View view) {

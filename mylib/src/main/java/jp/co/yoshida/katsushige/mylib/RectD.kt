@@ -187,6 +187,16 @@ class RectD() {
     }
 
     /**
+     * 四角形のエリアを拡張の初期値を設定
+     */
+    fun setInitExtension() {
+        this.left   = Double.MAX_VALUE
+        this.top    = Double.MAX_VALUE
+        this.right  = Double.MIN_VALUE
+        this.bottom = Double.MIN_VALUE
+    }
+
+    /**
      * 四角形のエリアを拡張する
      */
     fun extension(pos: PointD) {
