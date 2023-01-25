@@ -96,10 +96,12 @@ class GpsService : Service(), SensorEventListener {
         //  GPSデータ保存パス
         mGpsFilePath = klib.getPackageNameDirectory(this@GpsService) + "/" +mGpsFileName
         klib.removeFile(mGpsFilePath)
+        Log.d(TAG, "onCreate: GpsFilePath "+mGpsFilePath)
 
         //  歩数センサー
         mSensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
         if (!supportedStepSensor(this)) {   //	歩数センサーの確認
+            Log.d(TAG,"歩数センサーが対応していません")
             mStepFlag = false
             Toast.makeText(this, "歩数センサーが対応していません", Toast.LENGTH_SHORT).show()
         }
@@ -244,7 +246,7 @@ class GpsService : Service(), SensorEventListener {
     }
 
     /**
-     * サービス開始通知
+     * サービス開始通知(「Androidアプリ開発の教科書Kotliin対応」635p参照)
      * context      コンテキスト
      * channelId    チャンネル名
      * title        通知タイトル
@@ -256,14 +258,21 @@ class GpsService : Service(), SensorEventListener {
         builder.setSmallIcon(android.R.drawable.ic_dialog_info) //  アイコン設定
         builder.setContentTitle(title)                          //  表示タイトルの設定
         builder.setContentText(message)                         //  表示メッセージの設定
+        Log.d(TAG,"notificationStart 1")
+
         val intent = Intent(this@GpsService, MainActivity::class.java)   //  起動先Activity
         intent.putExtra("fromNptification", true)   //  起動先atcivityの設定
+//        val stopServiceIntent = PendingIntent.getActivity(context, 0,
+//            intent, PendingIntent.FLAG_UPDATE_CURRENT)
+        //  Target SDK 31(Android 12)から PendingIntent のmutability(可変性)を指定する必要
         val stopServiceIntent = PendingIntent.getActivity(context, 0,
-            intent, PendingIntent.FLAG_UPDATE_CURRENT)
+            intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        Log.d(TAG,"notificationStart 2")
         builder.setContentIntent(stopServiceIntent)             //  PendingIntentの設定
         builder.setAutoCancel(true)                             //  通知メッセージの自動消去
         val notification = builder.build()                      //  オブジェクトの生成
         startForeground(200, notification)                  //  ServiceのForGround化
+        Log.d(TAG,"notificationStart end")
     }
 
     /**

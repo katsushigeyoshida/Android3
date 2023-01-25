@@ -1,13 +1,18 @@
 package jp.co.yoshida.katsushige.mapapp
 
+import android.graphics.Insets
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import android.view.WindowInsets
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import jp.co.yoshida.katsushige.mapapp.databinding.ActivityGpsGraphBinding
 import jp.co.yoshida.katsushige.mylib.GpxReader
 import jp.co.yoshida.katsushige.mylib.KLib
+
+
 //import kotlinx.android.synthetic.main.activity_gps_graph.*
 
 class GpsGraph : AppCompatActivity() {
@@ -61,6 +66,19 @@ class GpsGraph : AppCompatActivity() {
         gpxReader.setGpsInfoData()
         mGpsGraphView = GpsGraphView(this, gpxReader)
         linearLayoutGraphview.addView(mGpsGraphView)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            //  API30以上でのScreenSizek取得
+            val windowMetrics = this.windowManager.currentWindowMetrics
+            val insets: Insets = windowMetrics.windowInsets
+                .getInsetsIgnoringVisibility(WindowInsets.Type.systemBars())
+            val ScreenWidth = windowMetrics.bounds.width()
+            val ScreenHeight = windowMetrics.bounds.height()
+            val StatusBar = insets.top
+            val NavigationBar = insets.bottom
+            Log.d(TAG,"onCreate: ScreenSize "+ScreenWidth+" "+ScreenHeight+" "+StatusBar+" "+NavigationBar)
+            mGpsGraphView.setInitGraphScreen(ScreenWidth, ScreenHeight - 600)    //  600はGraphエリア以外
+        }
 
         //  初期化
         init()

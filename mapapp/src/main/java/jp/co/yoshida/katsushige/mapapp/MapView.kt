@@ -24,6 +24,7 @@ class MapView(context: Context,var mMapData: MapData): View(context) {
     var mMarkList = MarkList()              //  マークのデータ
     var mMeasure = Measure()                //  距離測定実行中のデータ
     var mGpsTrace = GpsTrace()              //  GPSトレース実行中のデータ
+    var mGpsTraceList = GpsTraceList()      //  GPSトレースデータ
     var mGpsDataList = GpsDataList()        //  GPSデータ
     var mElevator = 0.0                     //  標高値(Mainから設定)
     var mLastSpeedAveSize = 16              //  GPSトレース速度の移動平均データ数(表示用)
@@ -54,6 +55,8 @@ class MapView(context: Context,var mMapData: MapData): View(context) {
         mMeasure.draw(canvas, mMapData)
         //  GPSトレースの表示
         mGpsTrace.draw(canvas, mMapData)
+        //  GPSトレース表示
+        mGpsTraceList.draw(canvas, mMapData)
         //  GPSデータ表示
         mGpsDataList.draw(canvas, mMapData)
         //  中心線

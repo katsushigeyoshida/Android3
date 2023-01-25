@@ -5,10 +5,7 @@ import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Rect
-import android.os.Bundle
-import android.os.Environment
-import android.os.Handler
-import android.os.Looper
+import android.os.*
 import android.util.Log
 import android.util.Size
 import android.view.Menu
@@ -42,6 +39,7 @@ class MainActivity : AppCompatActivity() {
     val mMarkListPath = "MarkList.csv"              //  マークリスト保存ファイル名
     val mGpxDataListPath = "GpxDataList.csv"        //  GPXデータリストのファイル名
     var mGpsTraceFileFolder = "GpsTraceData"        //  GPSトレースデータの保存フォルダ名
+    var mGpsTraceListPath = "GpsTraceList.csv"      //  GPSトレースリストのファイル名
     var mSelectMark = -1                            //  選択マークデータMo
     var mElevatorDataNo = 0                         //  標高データの種類(0: dem5a,1: dem5b,
 
@@ -60,21 +58,17 @@ class MainActivity : AppCompatActivity() {
 
     val REQUESTCODE_WIKI = 1
     val REQUESTCODE_MAPINFDATA = 2
+    val REQUESTCODE_GPXEDIT = 3
+    val REQUESTCODE_GPXFILELIST = 4
+    val REQUESTCODE_GPSTRACELIST = 5
 
     //  オプションサブメニュー(画面登録)
     val mMapDispMenu = listOf(
         "登録画面呼び出し", "地図画面登録", "登録画面削除")
-    //  オプションサブメニュー(GPXファイル処理)
-    val mGpxTraceMenu = mutableListOf(
-        "表示切替", "個別表示切替", "追加", "編集", "削除", "位置移動", "グラフ")
     //  オプションサブメニュー(マーク操作)
     val mMarkMenu = listOf(
         "中心位置を登録", "編集", "表示切替", "グループ表示切替", "ソート設定",
         "リストのインポート", "リストのエキスポート", "マークサイズ")
-    //  オプションサブメニュー(GPSトレース操作)
-    val mGpsTraceMenu = listOf(
-        "トレース表示", "データ情報", "グラフ表示", "位置移動", "データ名変更",
-        "データ移動", "データ削除", "データフォルダ変更", "GPXエキスポート")
 
     //  長押し時のコンテキストメニュー項目
     var mLongTouchMenu = mutableListOf<String>(
@@ -104,12 +98,12 @@ class MainActivity : AppCompatActivity() {
     var mAreaData = AreaData()                      //  画面登録クラス
     var mMarkList = MarkList()                      //  マークリストクラス
     var mMeasure = Measure()                        //  距離測定クラス
-    var mGpsDataList = GpsDataList()                //  GPXデータリスト
+    var mGpxDataList = GpsDataList()                //  GPXデータリスト
+    var mGpsTraceList = GpsTraceList()              //  GPSトレースリスト
     var mGpsTrace = GpsTrace()                      //  GpsのLogをとる
 
     val handler = Handler(Looper.getMainLooper())   //  Handlerw@でUIを制御
     val mGpsInterval = 5000L                        //  GPSトレース表示のインターバル(ms)
-//    var mTempFileNameList = mutableListOf<String>() //  データ受け渡し用の一時ファイルリスト
     var mDataFolder = ""                            //  データ保存ディレクトリ
     var mMapInfoDataPath = "MapDataList.csv"        //  地図データリストファイル名
 
@@ -152,7 +146,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         Log.d(TAG,"onCreate")
 
-        klib.checkStragePermission(this)
+        chkFileAccessPermission()   //  ファイルアクセスのパーミッション設定
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -173,8 +167,14 @@ class MainActivity : AppCompatActivity() {
         spMapType = binding.spMapType
 
         mDataFolder = klib.getPackageNameDirectory(this)
+        Log.d(TAG,"onCreate: " + mDataFolder)
+        if (!klib.mkdir(mDataFolder)) {
+            Log.d(TAG, "onCreate: NG "+mDataFolder)
+            Toast.makeText(this, "フォルダ作成不可:" + mDataFolder, Toast.LENGTH_LONG).show()
+        }
         mMapInfoDataPath = mDataFolder + "/" + mMapInfoDataPath
         mMapInfoData.loadMapInfoData(mMapInfoDataPath)  //  地図データリストの読込
+        mGpsTraceListPath = mDataFolder + "/" + mGpsTraceListPath
 
         init()                                  //  コントロールなどの初期化
 
@@ -182,7 +182,8 @@ class MainActivity : AppCompatActivity() {
         mMapView = MapView(this, mMapData)
         mMapView.mMarkList = mMarkList          //  マークリストデータの設定
         mMapView.mMeasure = mMeasure            //  距離測定データの設定
-        mMapView.mGpsDataList = mGpsDataList    //  GPSデータの表示設定
+        mMapView.mGpsDataList = mGpxDataList    //  GPSデータの表示設定
+        mMapView.mGpsTraceList = mGpsTraceList  //  GPSトレースの表示設定
         mMapData.mDataFolder = mDataFolder      //  データファイルフォルダ設定
         mMapData.loadParameter()                //  パラメータの読み込み
         setParameter()
@@ -201,6 +202,33 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
+     *  ファイルアクセスのパーミッションチェック
+     */
+    fun chkFileAccessPermission(){
+        if (30<= Build.VERSION.SDK_INT)
+            chkManageAllFilesAccess()
+        else
+            klib.checkStragePermission(this)
+    }
+
+    /**
+     *  MANAGE_ALL_FILES_ACCESS_PERMISSIONの確認(Android11 API30以上)
+     */
+    fun chkManageAllFilesAccess() {
+        var file = File("/storage/emulated/0/chkManageAllFilesAccess.txt")
+        Log.d(TAG,"chkManageAllFilesAccess:")
+        try {
+            if (file.createNewFile()) {
+                Log.d(TAG,"chkManageAllFilesAccess: create " + "OK")
+            }
+        } catch (e: Exception) {
+            Log.d(TAG,"chkManageAllFilesAccess: create " + "NG")
+            val intent = Intent("android.settings.MANAGE_ALL_FILES_ACCESS_PERMISSION")
+            startActivity(intent)
+        }
+    }
+
+    /**
      *  LinearLayoutMap(MapTestView)の大きさを取得する
      */
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -210,6 +238,22 @@ class MainActivity : AppCompatActivity() {
         mMapData.mView = Size(linearLayoutMap.width, linearLayoutMap.height)
         //  マウス位置をMapViewに合わせるためのオフセット値
         mMapViewTop = linearLayoutMap.top + getWindowHeight() - constraintLayout.height
+    }
+
+    /**
+     * 再表示でのデータの更新
+     */
+    override fun onResume() {
+        super.onResume()
+        Log.d(TAG, "onResume: ")
+        //  GPXデータリストの読込
+        mGpxDataList.mSaveFilePath = mDataFolder + "/" + mGpxDataListPath
+        klib.setStrPreferences(mGpxDataList.mSaveFilePath, "GpxDataListPath", this)
+        mGpxDataList.loadDataFile(this)
+        //  GPSトレースデータ
+        mGpsTraceList.mGpsTraceListPath = mGpsTraceListPath
+        mGpsTraceList.mGpsTraceFileFolder = mGpsTraceFileFolder
+        mGpsTraceList.loadListFile()
     }
 
     /**
@@ -235,7 +279,8 @@ class MainActivity : AppCompatActivity() {
         mMapData.saveImageFileSet(mImageFileSetPath)    //  ダウンロードファイルリストの保存
         mAreaData.saveAreaDataList()                    //  登録画面リストの保存
         mMarkList.saveMarkFile(this)            //  マークリストの保存
-        mGpsDataList.saveDataFile(this)             //  GPSデータリストの保存
+        mGpxDataList.saveDataFile(this)             //  GPSデータリストの保存
+        mGpsTraceList.saveListFile()                    //  GPSトレースリストの保存
 
         super.onStop()
     }
@@ -344,21 +389,70 @@ class MainActivity : AppCompatActivity() {
                 mMarkList.loadMarkFile(this)    //  マークデータ再読み込み
                 if (resultCode == RESULT_OK) {
                     //  座標指定移動
-                    val coordinate = data?.getStringExtra("座標")
+                    val coordinate = data?.getStringExtra("座標") //  [北緯35度28分27秒東経139度09分46秒]
                     Log.d(TAG,"onActivityResult: " + coordinate)
                     val ctr = klib.string2Coordinate(coordinate.toString())
-                    if (ctr.x != 0.0 && ctr.x != 0.0) {
+                    if (ctr.x != 0.0 && ctr.y != 0.0) {
                         mMapData.setLocation(mMapData.coordinates2BaseMap(ctr))
                         mapDisp(mMapDataDownLoadMode)     //  座標移動
                     }
                 }
             }
             REQUESTCODE_MAPINFDATA -> {
+                //  地図データ情報編集画面
                 Log.d(TAG, "onActivityResult: MAPINFODATA " + resultCode)
                 if (resultCode == RESULT_OK) {
                     //  地図データリストの再読込
                     mMapInfoData.loadMapInfoData(mMapInfoDataPath)
                     spSetMapInfoData()
+                }
+            }
+            REQUESTCODE_GPXEDIT -> {
+                //  GPXファイルデータ登録/編集画面
+                if (resultCode == RESULT_OK) {
+                    Log.d(TAG, "onActivityResult: GPXEDIT " + resultCode)
+                    mGpxDataList.loadDataFile(this)
+                    mapDisp(mMapDataDownLoadMode)     //  再表示
+                }
+            }
+            REQUESTCODE_GPXFILELIST -> {
+                //  GPXファイルリスト画面
+                if (resultCode == RESULT_OK) {
+                    mGpxDataList.loadDataFile(this)
+                    //  座標指定移動
+                    val coordinate = data?.getStringExtra("座標") //  [139.68142458, 35.56965361]
+                    Log.d(TAG,"onActivityResult:　GPXFILELIST " + coordinate)
+                    if (coordinate != null && 0 < coordinate.length) {
+                        val pos = coordinate.split(',')
+                        Log.d(TAG,"onActivityResult: " + pos.toString())
+                        if (pos.size == 2) {
+                            val ctr = PointD(pos[0].toDouble(), pos[1].toDouble())
+                            if (ctr.x != 0.0 && ctr.y != 0.0) {
+                                mMapData.setLocation(mMapData.coordinates2BaseMap(ctr))
+                            }
+                        }
+                    }
+                    mapDisp(mMapDataDownLoadMode)     //  再表示
+                }
+            }
+            REQUESTCODE_GPSTRACELIST -> {
+                //  GPSトレースリスト画面
+                if (resultCode == RESULT_OK) {
+                    mGpsTraceList.loadListFile()
+                    //  座標指定移動
+                    val coordinate = data?.getStringExtra("座標") //  [139.68142458, 35.56965361]
+                    Log.d(TAG,"onActivityResult:　GPSTRACELIST " + coordinate)
+                    if (coordinate != null && 0 < coordinate.length) {
+                        val pos = coordinate.split(',')
+                        Log.d(TAG,"onActivityResult: " + pos.toString())
+                        if (pos.size == 2) {
+                            val ctr = PointD(pos[0].toDouble(), pos[1].toDouble())
+                            if (ctr.x != 0.0 && ctr.y != 0.0) {
+                                mMapData.setLocation(mMapData.coordinates2BaseMap(ctr))
+                            }
+                        }
+                    }
+                    mapDisp(mMapDataDownLoadMode)     //  再表示
                 }
             }
         }
@@ -372,14 +466,14 @@ class MainActivity : AppCompatActivity() {
         item0.setIcon(android.R.drawable.ic_menu_set_as)
         val item1 = menu.add(Menu.NONE, MENU01, Menu.NONE, "登録画面...")
         item1.setIcon(android.R.drawable.ic_menu_set_as)
-        val item5 = menu.add(Menu.NONE, MENU05, Menu.NONE, "GPXデータ...")
-        item5.setIcon(android.R.drawable.ic_menu_set_as)
+        val item3 = menu.add(Menu.NONE, MENU03, Menu.NONE, "GPXファイルリスト...")
+        item3.setIcon(android.R.drawable.ic_menu_set_as)
+        val item4 = menu.add(Menu.NONE, MENU04, Menu.NONE, "GPSトレースリスト...")
+        item4.setIcon(android.R.drawable.ic_menu_set_as)
         val item6 = menu.add(Menu.NONE, MENU06, Menu.NONE, "マーク操作...")
         item6.setIcon(android.R.drawable.ic_menu_set_as)
         val item7 = menu.add(Menu.NONE, MENU07, Menu.NONE, "Wikiリスト")
         item7.setIcon(android.R.drawable.ic_menu_set_as)
-        val item11 = menu.add(Menu.NONE, MENU11, Menu.NONE, "GPSトレース...")
-        item11.setIcon(android.R.drawable.ic_menu_set_as)
         val item8 = menu.add(Menu.NONE, MENU08, Menu.NONE, "地図データ一括取込")
         item8.setIcon(android.R.drawable.ic_menu_set_as)
         val item9 = menu.add(Menu.NONE, MENU09, Menu.NONE, "オンラインの切替")
@@ -424,8 +518,11 @@ class MainActivity : AppCompatActivity() {
             MENU02 -> {      //  地図データ編集
                 setMapInfoData()
             }
-            MENU05 -> {     //  GPXデータ サブメニュー
-                gpxTraceMenu()
+            MENU03 -> {     //  GpxList
+                gpGpxFileList()
+            }
+            MENU04 -> {     //  GpsTraceList
+                gpGpsTraceList()
             }
             MENU06 -> {     //  マーク操作サブメニュー
                 markOperationMenu()
@@ -443,9 +540,6 @@ class MainActivity : AppCompatActivity() {
             MENU10 -> {      //  アプリ情報
                 dispAplInf()
             }
-            MENU11 -> {      //  トレースデータメニュー
-                gpsTraceMenu()
-            }
         }
         return super.onOptionsItemSelected(item)
     }
@@ -456,7 +550,7 @@ class MainActivity : AppCompatActivity() {
      * cont     前回値を引き継ぐ
      */
     fun GpsServiceStart(cont: Boolean = false) {
-        Log.d(TAG,"GpsServiceStart: "+cont)
+        Log.d(TAG,"GpsServiceStartContinue: "+cont)
         if (!cont) {
             val intent = Intent(this, GpsService::class.java)
             startService(intent)
@@ -474,9 +568,6 @@ class MainActivity : AppCompatActivity() {
         handler.removeCallbacks(runnable)
         if (save) {
             mGpsTrace.moveGpsFile(mGpsTraceFileFolder)
-//            mGpsTrace.loadGpsData()
-//            mGpsTrace.saveGpsDataFolder(mGpsTraceFileFolder)
-//            mGpsTrace.saveGps2GpxFolder(mGpsTraceFileFolder)
         }
     }
 
@@ -484,14 +575,11 @@ class MainActivity : AppCompatActivity() {
      *  位置情報(GPS除法)の初期化
      */
     fun initGps() {
-        mGpsTraceFileFolder = klib.getPackageNameDirectory(this) + "/" + mGpsTraceFileFolder
+        mGpsTraceFileFolder = mDataFolder + "/" + mGpsTraceFileFolder
         if (!klib.mkdir(mGpsTraceFileFolder))
             Toast.makeText(this, "GPS Data フォルダが作成できません/n" + mGpsTraceFileFolder, Toast.LENGTH_LONG).show()
         //  GpsTraceの初期設定
-//        mGpsTrace.mGpsPath = klib.getPackageNameDirectory(this) + "/" + mGpsFileName
-//        mGpsTrace.mGpsTraceFileFolder = mGpsTraceFileFolder
-//        mGpsTrace.mC = this
-        mGpsTrace.init(this, mGpsTraceFileFolder, klib.getPackageNameDirectory(this) + "/" + mGpsFileName)
+        mGpsTrace.init(this, mGpsTraceFileFolder, mDataFolder + "/" + mGpsFileName)
 
         mMapView.mGpsTrace = mGpsTrace
         //  GPSのミッションチェック
@@ -536,19 +624,14 @@ class MainActivity : AppCompatActivity() {
         mMapData.loadImageFileSet(mImageFileSetPath)
 
         //  位置画面データの読み込みと保存先フォルダ設定
-        val mapAreaDataListFolder = klib.getPackageNameDirectory(this)
-        mAreaData.setSavePath(mapAreaDataListFolder + "/" + mAreaDataListPath)
+        mAreaData.setSavePath(mDataFolder + "/" + mAreaDataListPath)
         mAreaData.loadAreaDataList()
 
         //  マークリストデータの読み込み
-        mMarkList.mSaveFilePath = mapAreaDataListFolder + "/" + mMarkListPath
+        mMarkList.mSaveFilePath = mDataFolder + "/" + mMarkListPath
         mMarkList.loadMarkFile(this)
         mMarkList.setGroupDispList()
         setMarkButton()
-
-        //  GPSデータリストの読込
-        mGpsDataList.mSaveFilePath = mapAreaDataListFolder + "/" + mGpxDataListPath
-        mGpsDataList.loadDataFile(this)
 
         //  MapViewサイズ仮設定
         mMapData.mView = Size(getWindowWidth(), getWindowHeight() - 406)
@@ -714,13 +797,6 @@ class MainActivity : AppCompatActivity() {
                         mGpsTrace.start()
                         GpsServiceStart()
                     })
-//                    .setNeutralButton("NO",{
-//                        dialog, which ->
-//                        //  GPS ON
-//                        btGpsOn.setBackgroundColor(Color.rgb(200, 50, 100))   //  赤(on)
-//                        mGpsTrace.start(false, false)
-//                        GpsServiceStart()
-//                    })
                     .setNegativeButton("キャンセル", {
                             dialog, which ->
                         mGpsLocation = !mGpsLocation
@@ -821,6 +897,7 @@ class MainActivity : AppCompatActivity() {
         //  Webから地図イメージデータを取得
         webFileLoad(mMapData, fileUpdate)
         mMapView.mElevator = getMapElevator(mMapData, mMapData.getMapCenter())
+
         //  中心のカラーデータ
         var rgb = getMapPixelColor(mMapData, mMapData.getMapCenter())
         mMapView.mCenterColor = rgb.uppercase()
@@ -989,8 +1066,6 @@ class MainActivity : AppCompatActivity() {
         var y = (256.0 * (cmp.y % 1.0)).toInt()
         var rgb = mMapView.getCellImage(cmp.x.toInt() - mapData.mStart.x.toInt(),
             cmp.y.toInt() - mapData.mStart.y.toInt())?.getPixel(x, y)
-//        Log.d(TAG,"getMapPixelColor: "+(cmp.x.toInt() - mapData.mStart.x.toInt())+","+
-//                (cmp.y.toInt() - mapData.mStart.y.toInt())+" "+x+","+y+" "+rgb)
         if (rgb != null) {
             var r = rgb.shr(16).and(0xff)
             var g = rgb.shr(8).and(0xff)
@@ -1041,7 +1116,6 @@ class MainActivity : AppCompatActivity() {
             eleList = klib.loadCsvData(path)
             mElevatorDataList.put(path, eleList)
         }
-//        Log.d(TAG, "getMapElevatorFile: " + path + " " + x + " " + y + " " + eleList.size)
         if (0 < eleList.size && y <= eleList.size)
             return if (eleList[y][x].indexOf("e") < 0) eleList[y][x].toDouble() else 0.0
         else
@@ -1159,157 +1233,6 @@ class MainActivity : AppCompatActivity() {
     fun setMapInfoData() {
         val intent = Intent(this, MapInfoDataActivity::class.java)
         startActivityForResult(intent, REQUESTCODE_MAPINFDATA)
-    }
-
-    /**
-     * GPSトレースの処理メニュー
-     */
-    fun gpsTraceMenu() {
-        klib.setMenuDialog(this, "GPSトレースメニュー", mGpsTraceMenu, iGpsTraceOperation)
-    }
-
-    //  GPSトレースの処理
-    var iGpsTraceOperation = Consumer<String> { s ->
-        if (s.compareTo(mGpsTraceMenu[0]) == 0) {
-            //  GPSトレース表切替
-            dispGpsTrace()
-        } else if (s.compareTo(mGpsTraceMenu[1]) == 0) {
-            //  データ情報の表示
-            mGpsTrace.gpsTraceInfo()
-        } else if (s.compareTo(mGpsTraceMenu[2]) == 0) {
-            //  グラフ表示
-            gpsTraceGraph()
-        } else if (s.compareTo(mGpsTraceMenu[3]) == 0) {
-            //  位置移動
-            gpsTraceMove()
-        } else if (s.compareTo(mGpsTraceMenu[4]) == 0) {
-            //  データ名変更
-            mGpsTrace.gpsTraceFileRename()
-        } else if (s.compareTo(mGpsTraceMenu[5]) == 0) {
-            //  データ移動
-            mGpsTrace.gpsTraceFileMove()
-        } else if (s.compareTo(mGpsTraceMenu[6]) == 0) {
-            //  データの削除
-            mGpsTrace.gpsTraceRemove()
-        } else if (s.compareTo(mGpsTraceMenu[7]) == 0) {
-            //  対象フォルダ
-            gpsTraceCurrentFolderMove()
-        } else if (s.compareTo(mGpsTraceMenu[8]) == 0) {
-            //  GPXエキスポート
-            mGpsTrace.gpsTraceExport()
-        }
-    }
-
-    /**
-     * GPSトレース・ファイル選択表示
-     */
-    fun dispGpsTrace() {
-        Log.d(TAG,"dispGpsTrace: " + mGpsTraceFileFolder)
-        var listFile = klib.getFileList(mGpsTraceFileFolder, false, "*.csv")
-        listFile = listFile.sortedByDescending { it.lastModified() }
-        var fileNameList = mutableListOf<String>()
-        if (mGpsTrace.mTraceOn && klib.existsFile(mGpsTraceFileFolder + "/" + mGpsFileName))
-            fileNameList.add("トレース中データ")
-        for (file in listFile) {
-            fileNameList.add(file.nameWithoutExtension)
-            Log.d(TAG,"dispGpsTrace: " + file.path)
-        }
-        var chkList = BooleanArray(fileNameList.size)
-        for (i in 0..(fileNameList.size - 1))
-            chkList[i] = false
-        klib.setChkMenuDialog(this, "トレース表示ファイルリスト", fileNameList.toTypedArray(), chkList, iGpsTraceDisp)
-    }
-
-    //  GPSトレースファイル選択表示
-    var iGpsTraceDisp = Consumer<BooleanArray> { s ->
-        var listFile = klib.getFileList(mGpsTraceFileFolder, false, "*.csv")
-        listFile = listFile.sortedByDescending { it.lastModified() }
-        var fileNameList = mutableListOf<String>()
-        if (mGpsTrace.mTraceOn && klib.existsFile(mGpsTraceFileFolder + "/" + mGpsFileName))
-            fileNameList.add("トレース中データ")
-        for (file in listFile)
-            fileNameList.add(file.nameWithoutExtension)
-        mGpsTrace.mGpsPointDatas.clear()
-        for (i in 0..(s.size - 1)) {
-            if (s[i]) {
-                if (fileNameList[i].compareTo("トレース中データ") == 0) {
-                    mGpsTrace.addGpsData(mGpsTraceFileFolder + "/" + mGpsFileName)
-                } else {
-                    mGpsTrace.addGpsData(mGpsTraceFileFolder + "/" + fileNameList[i] + ".csv")
-                }
-            }
-        }
-        mapDisp(mMapDataDownLoadMode)
-    }
-
-    /**
-     * GPSトレースデータのグラフ表示
-     */
-    fun gpsTraceGraph() {
-        var listFile = klib.getFileList(mGpsTraceFileFolder, false, "*.csv")
-        listFile = listFile.sortedByDescending { it.lastModified() }
-        var fileNameList = mutableListOf<String>()
-        if (mGpsTrace.mTraceOn && klib.existsFile(klib.getPackageNameDirectory(this) + "/" + mGpsFileName))
-            fileNameList.add("トレース中データ")
-        for (file in listFile)
-            fileNameList.add(file.nameWithoutExtension)
-        klib.setMenuDialog(this, "グラフ表示ファイルリスト", fileNameList, iGpsSelectGraphOperation)
-    }
-
-    //  選択ファイルのグラフ表示
-    var iGpsSelectGraphOperation = Consumer<String> { s ->
-        Toast.makeText(this, s, Toast.LENGTH_LONG).show()
-        var path = if (s.compareTo("トレース中データ") == 0)
-                        klib.getPackageNameDirectory(this) + "/" + mGpsFileName
-                    else
-                        mGpsTraceFileFolder + "/" + s + ".csv"
-        if (klib.existsFile(path)) {
-            val intent = Intent(this, GpsGraph::class.java)
-            intent.putExtra("FILE", path)
-            intent.putExtra("TITLE", s)
-            startActivity(intent)
-        }
-    }
-
-    /**
-     *  トレース位置に移動
-     */
-    fun gpsTraceMove() {
-        var listFile = klib.getFileList(mGpsTraceFileFolder, false, "*.csv")
-        listFile = listFile.sortedByDescending { it.lastModified() }
-        var fileNameList = mutableListOf<String>()
-        if (mGpsTrace.mTraceOn && klib.existsFile(klib.getPackageNameDirectory(this) + "/" + mGpsFileName))
-            fileNameList.add("トレース中データ")
-        for (file in listFile)
-            fileNameList.add(file.nameWithoutExtension)
-        klib.setMenuDialog(this, "位置移動ファイルリスト", fileNameList, iGpsMove)
-    }
-
-    //  トレース位置に移動
-    var iGpsMove = Consumer<String> { s ->
-        var gpsTrace = GpsTrace()
-        if (s.compareTo("トレース中データ") == 0) {
-            gpsTrace.loadGpsPointData(klib.getPackageNameDirectory(this) + "/" + mGpsFileName)
-        } else {
-            gpsTrace.loadGpsPointData(mGpsTraceFileFolder + "/" + s + ".csv")
-        }
-        if (0 < gpsTrace.mGpsPointData.size) {
-            mMapData.setLocation(klib.coordinates2BaseMap(gpsTrace.traceArea().center()))
-            mapDisp(mMapDataDownLoadMode)
-        }
-    }
-
-    //  GPSトレースフォルダの変更
-    fun gpsTraceCurrentFolderMove() {
-        klib.folderSelectDialog(this, mGpsTraceFileFolder, iGpsTraceFolderOperation)
-    }
-
-    var  iGpsTraceFolderOperation = Consumer<String>() { s ->
-        if (0 < s.length) {
-            mGpsTraceFileFolder = s
-            mGpsTrace.mGpsTraceFileFolder = s
-            Log.d(TAG,"iGpsTraceFolderOperation: " + mGpsTraceFileFolder)
-        }
     }
 
     /**
@@ -1635,7 +1558,8 @@ class MainActivity : AppCompatActivity() {
      * ファイル一覧第ログを表示して行う
      */
     fun markImport() {
-        klib.fileSelectDialog(this, klib.getPackageNameDirectory(this), "*.csv", true, iFilePath)
+//        klib.fileSelectDialog(this, klib.getPackageNameDirectory(this), "*.csv", true, iFilePath)
+        klib.fileSelectDialog(this, mDataFolder, "*.csv", true, iFilePath)
     }
 
     /**
@@ -1653,7 +1577,8 @@ class MainActivity : AppCompatActivity() {
      * ファイル保存ダイヤログを表示して行う
      */
     fun markExport() {
-        klib.saveFileSelectDialog(this, klib.getPackageNameDirectory(this), "*.csv", true, iDirPath)
+//        klib.saveFileSelectDialog(this, klib.getPackageNameDirectory(this), "*.csv", true, iDirPath)
+        klib.saveFileSelectDialog(this, mDataFolder, "*.csv", true, iDirPath)
     }
 
     /**
@@ -1692,226 +1617,21 @@ class MainActivity : AppCompatActivity() {
         startActivityForResult(intent, REQUESTCODE_WIKI)
     }
 
-
     /**
-     * GPXトレース表示操作メニュー
+     * GPXのファイルリスト
      */
-    fun gpxTraceMenu() {
-        if (mGpsDataList.mDisp) {
-            mGpxTraceMenu[0] = "表示切替(非表示にする)"
-        } else {
-            mGpxTraceMenu[0] = "表示切替(表示にする)"
-        }
-        klib.setMenuDialog(this, "GPXデータ", mGpxTraceMenu, iGpxTraceOperation)
+    fun gpGpxFileList() {
+        val intent = Intent(this, GpxListActivity::class.java)
+        startActivityForResult(intent, REQUESTCODE_GPXFILELIST)
     }
 
     /**
-     *  GPXトレース表示操作選択実行
+     * GPSトレースリスト
      */
-    var iGpxTraceOperation = Consumer<String> { s ->
-        if (s.compareTo(mGpxTraceMenu[0]) == 0) {
-            //  GPXトレース表示切替
-            mGpsDataList.mDisp = !mGpsDataList.mDisp
-            mapDisp(mMapDataDownLoadMode)
-        } else if (s.compareTo(mGpxTraceMenu[1]) == 0) {
-            //  GPXトレース個別表示切替
-            setVisibleGpxTrace()
-            mapDisp(mMapDataDownLoadMode)
-        } else if (s.compareTo(mGpxTraceMenu[2]) == 0) {
-            //  GPXトレース登録
-            addGpxTrace()
-            mapDisp(mMapDataDownLoadMode)
-        } else if (s.compareTo(mGpxTraceMenu[3]) == 0) {
-            //  GPXトレース編集
-            selectEditGpxTrace()
-        } else if (s.compareTo(mGpxTraceMenu[4]) == 0) {
-            //  GPXトレース削除
-            selectRemoveGpxTrace()
-        } else if (s.compareTo(mGpxTraceMenu[5]) == 0) {
-            //  移動
-            selectMoveGpxTrace()
-        } else if (s.compareTo(mGpxTraceMenu[6]) == 0) {
-            //  グラフ
-            selectGpxGraph()
-        }
-     }
-
-    /**
-     *  GPXデータを個別に表示/非表示の設定をする
-     */
-    fun setVisibleGpxTrace() {
-        //  GPXリストのグループ選択
-        klib.setMenuDialog(this, "GPXデータの個別表示設定", mGpsDataList.getGroupList("すべて"), iGpxGroupSelectVisibleOperation)
-    }
-
-    /**
-     *  GPXデータを個別に表示/非表示の設定の関数インターフェース
-     */
-    var iGpxGroupSelectVisibleOperation = Consumer<String> { s ->
-        var dataList = mGpsDataList.getDataList(s)
-        dataList = dataList.sortedByDescending { it.mTitle }
-        var itemList = Array<String>(dataList.size, { i -> "" })
-        var chkList = BooleanArray(dataList.size)
-        for (i in 0..(dataList.size - 1)) {
-            itemList[i] = dataList[i].mTitle
-            chkList[i] = dataList[i].mVisible
-        }
-        klib.setChkMenuDialog(this, "表示設定", itemList, chkList, iGpxVisibleOperation)
-    }
-
-    /**
-     *  GPXデータを個別に表示/非表示の設定の関数インターフェース(2)
-     */
-    var iGpxVisibleOperation = Consumer<BooleanArray> { s ->
-        var dataList = mGpsDataList.getDataList(mGpsDataList.mPreSelectGroup)
-        dataList = dataList.sortedByDescending { it.mTitle }
-        for (i in 0..(s.size - 1)) {
-            Log.d(TAG, "iGpsVisibleOperation: " + i + " " + s[i])
-            dataList[i].mVisible = s[i]
-        }
-        mapDisp(mMapDataDownLoadMode)
-    }
-
-    /**
-     *  GPXトレースデータをリストに追加
-     */
-    fun addGpxTrace() {
-        //  前回フォルダ
-        var gpxFileFolder = klib.getStrPreferences("GpxFileFolder", this)
-        if (gpxFileFolder == null || !klib.isDirectory(gpxFileFolder))
-            gpxFileFolder = klib.getPackageNameDirectory(this)
-        //  ファイル選択
-        klib.fileSelectDialog(this, gpxFileFolder, "*.gpx", true, iGpxFilePath)
-    }
-
-    /**
-     * GPXトレースデータをリストに追加すめファイル選択関数インターフェース
-     */
-    var  iGpxFilePath = Consumer<String>() { s ->
-        Toast.makeText(this, s, Toast.LENGTH_LONG).show()
-        if (0 < s.length) {
-            mGpsDataList.addFile(s)
-            //  選択ファイルのフォルダを保存
-            klib.setStrPreferences(klib.getFolder(s), "GpxFileFolder", this)
-            //  GPSデータの取得と登録
-            var gpsDataNo = mGpsDataList.mDataList.size - 1
-            var data = mGpsDataList.mDataList[gpsDataNo].getStringData()
-            var gpsData = mutableListOf<String>()
-            gpsData.add((gpsDataNo).toString())
-            gpsData.addAll(data)
-            gpsData.add(mGpsDataList.mDataList[gpsDataNo].getInfoData())
-            //  登録したGPSデーのの編集
-            mGpsDataList.setGpxInputDialog(this, "GPS登録", gpsData, iGpsSetOperation)
-        }
-    }
-
-    /**
-     *  GPXデータのリスト編集
-     */
-    fun selectEditGpxTrace() {
-        //  グループ選択してデータを選択
-        klib.setMenuDialog(this, "GPSデータの編集", mGpsDataList.getGroupList("すべて"), iGpxGroupSelectEditOperation)
-    }
-
-    //  GPXデータのリスト編集 グループを指定して編集データを選択する関数インターフェース
-    var iGpxGroupSelectEditOperation = Consumer<String> { s ->
-        Toast.makeText(this, s, Toast.LENGTH_LONG).show()
-        klib.setMenuDialog(this, "GPXデータの編集", mGpsDataList.getTitleList(s), iGpxTitleSelectEditOperation)
-    }
-
-    //  GPXデータのリスト編集 (タイトルストの選択で編集ダイヤログ実行の関数インターフェース)
-    var iGpxTitleSelectEditOperation = Consumer<String> { s ->
-        Toast.makeText(this, s, Toast.LENGTH_LONG).show()
-        var gpsDataNo = mGpsDataList.getDataNum(s, mGpsDataList.mPreSelectGroup)
-        if (0 <= gpsDataNo) {
-            var data = mGpsDataList.mDataList[gpsDataNo].getStringData()
-            var gpsData = mutableListOf<String>()
-            gpsData.add(gpsDataNo.toString())
-            gpsData.addAll(data)
-            gpsData.add(mGpsDataList.mDataList[gpsDataNo].getInfoData())
-            mGpsDataList.setGpxInputDialog(this, "GPXデータの編集", gpsData, iGpsSetOperation)
-        }
-    }
-
-    /**
-     *  GPXトレースデータをリストから削除
-     */
-    fun selectRemoveGpxTrace() {
-        klib.setMenuDialog(this, "GPXデータの削除", mGpsDataList.getGroupList("すべて"), iGpsGroupSelectRemoveOperation)
-    }
-
-    var iGpsGroupSelectRemoveOperation = Consumer<String> { s ->
-        Toast.makeText(this, s, Toast.LENGTH_LONG).show()
-        klib.setMenuDialog(this, "GPXデータの削除", mGpsDataList.getTitleList(s), iGpxSelectRemoveOperation)
-    }
-
-    var iGpxSelectRemoveOperation = Consumer<String> { s ->
-        Toast.makeText(this, s, Toast.LENGTH_LONG).show()
-        var gpsDataNo = mGpsDataList.getDataNum(s, mGpsDataList.mPreSelectGroup)
-        if (0 <= gpsDataNo) {
-            mGpsDataList.mDataList.removeAt(gpsDataNo)
-        }
-    }
-
-    /**
-     * GPXトレース位置に移動
-     */
-    fun selectMoveGpxTrace() {
-        klib.setMenuDialog(this, "GPX位置に移動", mGpsDataList.getGroupList("すべて"), iGpxGroupSelectMoveOperation)
-    }
-
-    var iGpxGroupSelectMoveOperation = Consumer<String> { s ->
-        Toast.makeText(this, s, Toast.LENGTH_LONG).show()
-        klib.setMenuDialog(this, "GPX位置に移動", mGpsDataList.getTitleList(s), iGpxSelectMoveOperation)
-    }
-
-    var iGpxSelectMoveOperation = Consumer<String> { s ->
-        Toast.makeText(this, s, Toast.LENGTH_LONG).show()
-        var gpsDataNo = mGpsDataList.getDataNum(s, mGpsDataList.mPreSelectGroup)
-        if (0 <= gpsDataNo) {
-            mMapData.setLocation(klib.coordinates2BaseMap(mGpsDataList.mDataList[gpsDataNo].mLocArea.center()))
-            mapDisp(mMapDataDownLoadMode)
-        }
-    }
-
-    /**
-     * GPXグラフ表示
-     * グループ選択
-     */
-    fun selectGpxGraph() {
-        klib.setMenuDialog(this, "GPXグラフ表示", mGpsDataList.getGroupList("すべて"), iGpxGroupSelectGraphOperation)
-    }
-
-    //  GPXファイル選択
-    var iGpxGroupSelectGraphOperation = Consumer<String> { s ->
-        Toast.makeText(this, s, Toast.LENGTH_LONG).show()
-        klib.setMenuDialog(this, "GPXグラフ表示", mGpsDataList.getTitleList(s), iGpxSelectGraphOperation)
-    }
-
-    //  選択されたファイルでグラフ表示のインテントを起動
-    var iGpxSelectGraphOperation = Consumer<String> { s ->
-        Toast.makeText(this, s, Toast.LENGTH_LONG).show()
-        var gpsDataNo = mGpsDataList.getDataNum(s, mGpsDataList.mPreSelectGroup)
-        if (0 <= gpsDataNo) {
-            val intent = Intent(this, GpsGraph::class.java)
-            intent.putExtra("FILE", mGpsDataList.mDataList[gpsDataNo].mFilePath)
-            intent.putExtra("TITLE", mGpsDataList.mDataList[gpsDataNo].mTitle)
-            startActivity(intent)
-        }
-    }
-
-    //  GPXトレースの編集データを登録する関数インタフェース
-    var iGpsSetOperation = Consumer<String> { s ->
-        Toast.makeText(this, s, Toast.LENGTH_LONG).show()
-        var data = s.split(',')
-        var dataNo = data[0].toInt()
-        if (0 <= dataNo) {
-            mGpsDataList.mDataList[dataNo].mTitle = data[1]
-            mGpsDataList.mDataList[dataNo].mGroup = data[2]
-            mGpsDataList.mDataList[dataNo].mComment = data[3]
-//            mGpsDataList.mDataList[dataNo].mFilePath = data[4]
-            mGpsDataList.mDataList[dataNo].mLineColor = data[5]
-        }
-        mapDisp(mMapDataDownLoadMode)
+    fun gpGpsTraceList() {
+        val intent = Intent(this, GpsTraceListActivity::class.java)
+        intent.putExtra("GPSTRACEFOLDER", mGpsTraceFileFolder)
+        intent.putExtra("GPSTRACELISTPATH", mGpsTraceListPath)
+        startActivityForResult(intent, REQUESTCODE_GPSTRACELIST)
     }
 }

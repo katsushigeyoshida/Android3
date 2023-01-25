@@ -1,7 +1,6 @@
 package jp.co.yoshida.katsushige.mapapp
 
 import android.content.Intent
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -9,14 +8,12 @@ import android.util.Log
 import android.view.MenuItem
 import android.view.View
 import android.widget.*
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.util.Consumer
-import jp.co.yoshida.katsushige.mapapp.databinding.ActivityMainBinding
 import jp.co.yoshida.katsushige.mapapp.databinding.ActivityWikiListBinding
 import jp.co.yoshida.katsushige.mylib.KLib
-//import kotlinx.android.synthetic.main.activity_wiki_list.*
-import kotlinx.coroutines.*
-import java.lang.Runnable
-import java.util.*
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 
 class WikiList : AppCompatActivity() {
     val TAG = "WikiList"

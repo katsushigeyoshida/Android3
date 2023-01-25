@@ -2,6 +2,8 @@ package jp.co.yoshida.katsushige.mapapp
 
 import android.content.Context
 import android.graphics.Canvas
+import android.graphics.Color
+import android.util.Log
 import android.util.Size
 import android.view.View
 import jp.co.yoshida.katsushige.mylib.*
@@ -9,23 +11,24 @@ import java.util.*
 
 class GpsGraphView(context: Context, var mGpsData: GpxReader): View(context) {
     val TAG = "GpsGraphView"
+
     var mYTypeTitle = ""            //  縦軸の種別名
     var mXTypeTitle = ""            //  横軸の種別名
-    var mYType = YTYPE.Elevator     //  縦軸の種別
+    var mYType = YTYPE.LapTime      //  縦軸の種別
     var mXType = XTYPE.Distance     //  横軸の種別
     var mAverageCountTitle = ""     //  移動平均のデータ数
-    enum class YTYPE { Elevator, ElevatorDiff, Speed }
+    enum class YTYPE { LapTime, Distance, Elevator, ElevatorDiff, Speed }
     enum class XTYPE { Distance, LapTime, DateTime }
     var mStepYSize = 1.0            //  縦軸目盛のステップサイズ
     var mStepXSize = 1.0            //  横軸目盛のステップサイズ
-    var mLeftMargin = 150.0         //  左マージン(スクリーンサイズ)
+    var mLeftMargin = 180.0         //  左マージン(スクリーンサイズ)
     var mTopMargin = 230.0          //  下部(倒立時)マージン(スクリーンサイズ)
     var mRightMargine = 40.0        //  右マージン(スクリーンサイズ)
     var mBottomMargin = 20.0        //  上部(倒立時)マージン(スクリーンサイズ)
-    val mYTitle = listOf("標高(m)", "標高(m)", "速度(km/h)")      // 　縦軸タイトル
-    val mXTitle = listOf("距離(km)", "経過時間", "日時")            //  横軸タイトル
-    val mGraphYType = listOf<String>("標高", "標高差", "速度")     //  縦軸のデータ種別
-    val mGraphXType = listOf<String>("距離", "経過時間", "時刻")    //  横軸のデータ種別
+    val mYTitle = listOf("経過時間", "距離(km)", "標高(m)", "標高(m)", "速度(km/h)")      // 　縦軸タイトル
+    val mXTitle = listOf("距離(km)", "経過時間", "日時")                                //  横軸タイトル
+    val mGraphYType = listOf<String>("経過時間", "距離(km)", "標高(m)", "標高(m)", "速度(km/h)")  //  縦軸のデータ種別
+    val mGraphXType = listOf<String>("距離(km)", "経過時間", "日時")                            //  横軸のデータ種別
     var mAverageCount = listOf<String>("なし", "2", "3", "4", "5", "7", "10", "15", "20",
                 "25", "30", "40", "50", "100", "150", "200", "300", "400", "500", "1000")
 
@@ -43,6 +46,17 @@ class GpsGraphView(context: Context, var mGpsData: GpxReader): View(context) {
      */
     override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
         super.onWindowFocusChanged(hasWindowFocus)
+        Log.d(TAG,"onWindowFocusChanged: "+width+" "+height)
+        //  Android12以降、初期表示以降となるので初期時に別に設定が必要
+        setInitGraphScreen(width, height)
+    }
+
+    /**
+     * グラフエリアの初期設定
+     * width        グラフエリアの幅
+     * height       グラフエリアの高さ
+     */
+    fun setInitGraphScreen(width: Int, height:Int) {
         //  スクリーンサイズの設定
         kdraw.setInitScreen(width, height)
         //  倒立表示
@@ -90,8 +104,8 @@ class GpsGraphView(context: Context, var mGpsData: GpxReader): View(context) {
         setStepSize()
         //  ステップサイズや上部下部マージンを補正してワールド座標を再設定
         setWorldArea()
-
         //  グラフ枠の表示
+        kdraw.backColor(Color.WHITE)
         kdraw.mColor = "Black"
         kdraw.drawWRect(RectD(kdraw.mWorld))
         //  補助線と目盛の表示
@@ -107,7 +121,12 @@ class GpsGraphView(context: Context, var mGpsData: GpxReader): View(context) {
         var sy = getMovingAverage(0, averageCount, mYType)
         for (i in 1..mGpsData.mListGpsData.size - 1) {
             var ex = getXData(i, mXType) + sx
-            var ey = getMovingAverage(i, averageCount, mYType)
+            var ey = 0.0
+            if (mYType == YTYPE.Distance || mYType == YTYPE.LapTime) {
+                ey = getYData(i, mYType) + sy
+            } else {
+                ey = getMovingAverage(i, averageCount, mYType)
+            }
             kdraw.drawWLine(PointD(sx, sy), PointD(ex, ey))
             sx = ex
             sy = ey
@@ -198,9 +217,11 @@ class GpsGraphView(context: Context, var mGpsData: GpxReader): View(context) {
      */
     fun getYTitleDraw() {
         val ytitle = when (mYType) {
-            YTYPE.Elevator -> mYTitle[0]
-            YTYPE.ElevatorDiff -> mYTitle[1]
-            YTYPE.Speed -> mYTitle[2]
+            YTYPE.LapTime -> mYTitle[0]
+            YTYPE.Distance -> mYTitle[1]
+            YTYPE.Elevator -> mYTitle[2]
+            YTYPE.ElevatorDiff -> mYTitle[3]
+            YTYPE.Speed -> mYTitle[4]
         }
         kdraw.drawWText(ytitle, PointD(kdraw.mWorld.left - kdraw.cnvScreen2WorldX(mLeftMargin - 20.0),
                 kdraw.mWorld.centerY()),
@@ -263,6 +284,12 @@ class GpsGraphView(context: Context, var mGpsData: GpxReader): View(context) {
     fun yScaleDraw(value: Double, pos: PointD) {
         pos.x -= kdraw.cnvScreen2WorldX(kdraw.mTextSize.toDouble()) / 2.0
         when (mYType) {
+            YTYPE.LapTime -> {
+                kdraw.drawWText(klib.lap2String(value.toLong()), pos, 0.0, KDraw.HALIGNMENT.Right, KDraw.VALIGNMENT.Center)
+            }
+            YTYPE.Distance -> {
+                kdraw.drawWText("%,.2f".format(value), pos, 0.0, KDraw.HALIGNMENT.Right, KDraw.VALIGNMENT.Center)
+            }
             YTYPE.Elevator -> {
                 kdraw.drawWText("%,.0f".format(value), pos, 0.0, KDraw.HALIGNMENT.Right, KDraw.VALIGNMENT.Center)
             }
@@ -308,7 +335,11 @@ class GpsGraphView(context: Context, var mGpsData: GpxReader): View(context) {
         var maxData = 0.0
         var averageCount = mAverageCountTitle.toIntOrNull()?:0
         for (i in 1..mGpsData.mListGpsData.size - 1) {
-            maxData = Math.max(maxData, getMovingAverage(i, averageCount, type))
+            if (mYType == YTYPE.Distance || mYType == YTYPE.LapTime) {
+                maxData += getYData(i, type)
+            } else {
+                maxData = Math.max(maxData, getMovingAverage(i, averageCount, type))
+            }
         }
         return maxData
     }
@@ -326,6 +357,12 @@ class GpsGraphView(context: Context, var mGpsData: GpxReader): View(context) {
         var startCount = averageCount / 2
         for (i in Math.max(0, pos - startCount)..Math.min(mGpsData.mListGpsData.size - 1, pos + startCount)) {
             when (dataType) {
+                YTYPE.LapTime -> {
+                    sum += mGpsData.mListGpsData[i].mLap.toDouble()
+                }
+                YTYPE.Distance -> {
+                    sum += mGpsData.mListGpsData[i].mDistance
+                }
                 YTYPE.Elevator -> {
                     sum += mGpsData.mListGpsData[i].mElevator
                 }
@@ -362,16 +399,48 @@ class GpsGraphView(context: Context, var mGpsData: GpxReader): View(context) {
     }
 
     /**
+     * 縦軸データの取得
+     * pos      データ位置
+     * dataType データの種別
+     * return   データの値
+     */
+    fun getYData(pos: Int, dataType: YTYPE): Double {
+        return when (dataType) {
+            YTYPE.Distance -> {
+                mGpsData.mListGpsData[pos].mDistance
+            }
+            YTYPE.LapTime -> {
+                mGpsData.mListGpsData[pos].mLap.toDouble()
+            }
+            YTYPE.Elevator -> {
+                mGpsData.mListGpsData[pos].mElevator
+            }
+            YTYPE.ElevatorDiff -> {
+                mGpsData.mListGpsData[pos].mElevator
+            }
+            YTYPE.Speed -> {
+                mGpsData.mListGpsData[pos].mSpeed
+            }
+        }
+    }
+
+
+    /**
      * データの種別を設定
      */
     fun setDataType() {
         if (mYTypeTitle.compareTo(mGraphYType[0]) == 0) {
-            mYType = YTYPE.Elevator
+            mYType = YTYPE.LapTime
         } else if (mYTypeTitle.compareTo(mGraphYType[1]) == 0) {
-            mYType = YTYPE.ElevatorDiff
+            mYType = YTYPE.Distance
         } else if (mYTypeTitle.compareTo(mGraphYType[2]) == 0) {
+            mYType = YTYPE.ElevatorDiff
+        } else if (mYTypeTitle.compareTo(mGraphYType[3]) == 0) {
+            mYType = YTYPE.ElevatorDiff
+        } else if (mYTypeTitle.compareTo(mGraphYType[4]) == 0) {
             mYType = YTYPE.Speed
         }
+
         if (mXTypeTitle.compareTo(mGraphXType[0]) == 0) {
             mXType = XTYPE.Distance
         } else if (mXTypeTitle.compareTo(mGraphXType[1]) == 0) {

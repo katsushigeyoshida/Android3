@@ -33,20 +33,20 @@ import java.time.LocalDateTime
 class MapData(var context: Context, var mMapInfoData: MapInfoData) {
     val TAG = "MapData"
 
-    val mZoomName = listOf(                            //  ズームレベル(spinner表示用)
+    val mZoomName = listOf(                             //  ズームレベル(spinner表示用)
             "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
             "11", "12", "13", "14", "15", "16", "17", "18")
-    val mColCountName = listOf(                       //  列数(spinner表示用)
+    val mColCountName = listOf(                         //  列数(spinner表示用)
             "1", "2", "3", "4", "5", "6", "7", "8", "9", "10")
-    var mMapTitle = "std"                             //  地図の名称
-    var mMapTitleNum = 0                              //  地図の種類(No)
-    var mExt = "png"                                  //  タイル画像の拡張子
-    var mCellSize = 256f                              //  タイル画像の大きさ(辺の長さ)
-    var mZoom = 0                                     //  ズームレベル
-    var mColCount = 1                                 //  表示列数
-    var mRowCount = 1                                 //  表示行数
-    var mStart = PointD(0.0, 0.0)               //  表示開始座標(Map座標)
-    var mView = Size(1000, 1000)          //  表示するViewの大きさ
+    var mMapTitle = "std"                               //  地図の名称
+    var mMapTitleNum = 0                                //  地図の種類(No)
+    var mExt = "png"                                    //  タイル画像の拡張子
+    var mCellSize = 256f                                //  タイル画像の大きさ(辺の長さ)
+    var mZoom = 0                                       //  ズームレベル
+    var mColCount = 1                                   //  表示列数
+    var mRowCount = 1                                   //  表示行数
+    var mStart = PointD(0.0, 0.0)                  //  表示開始座標(Map座標)
+    var mView = Size(1000, 1000)            //  表示するViewの大きさ
     var mMapUrl = ""                                    //  地図データURL
     var mElevatorDataNo = 0                             //  使用標高データのNo
     var mBaseMapDataNo = 0                              //  重ね合わせ表示のベースマップDataNo
@@ -75,7 +75,7 @@ class MapData(var context: Context, var mMapInfoData: MapInfoData) {
         mapData.mMapTitle = mMapTitle
         mapData.mMapTitleNum = mMapTitleNum
         mapData.mExt = mExt
-        mapData.mCellSize =mCellSize
+        mapData.mCellSize = mCellSize
         mapData.mZoom = mZoom
         mapData.mColCount = mColCount
         mapData.mRowCount = mRowCount
@@ -129,7 +129,7 @@ class MapData(var context: Context, var mMapInfoData: MapInfoData) {
         mMapInfoData.setMapTitleNum(mMapTitleNum)
         mMapTitle = mMapInfoData.mMapData[mMapTitleNum][1]
         mExt = mMapInfoData.mMapData[mMapTitleNum][2]
-        mZoom = Math.min(Math.max(mZoom, 0), 20)
+        mZoom = Math.max(mZoom, 0)
         val maxColCount = getMaxColCount()
         mStart.x  = Math.min(Math.max(mStart.x, 0.0), maxColCount.toDouble())
         mStart.y  = Math.min(Math.max(mStart.y, 0.0), maxColCount.toDouble())
@@ -424,10 +424,13 @@ class MapData(var context: Context, var mMapInfoData: MapInfoData) {
      *  ctr     拡大縮小の中心点(Map座標)
      */
     fun setZoom(dZoom: Int, ctr: PointD) {
-        mStart.x = ctr.x * Math.pow(2.0, dZoom.toDouble()) - mColCount / 2.0
-        mStart.y = ctr.y * Math.pow(2.0, dZoom.toDouble()) - getRowCountF() / 2.0
-        mZoom += dZoom
-        normarized()
+        Log.d(TAG, "setZoom: "+mZoom+" "+dZoom)
+        if (mZoom + dZoom <= mMapInfoData.getMapDataMaxZoom(mMapTitleNum)) {
+            mStart.x = ctr.x * Math.pow(2.0, dZoom.toDouble()) - mColCount / 2.0
+            mStart.y = ctr.y * Math.pow(2.0, dZoom.toDouble()) - getRowCountF() / 2.0
+            mZoom += dZoom
+            normarized()
+        }
     }
 
     /**

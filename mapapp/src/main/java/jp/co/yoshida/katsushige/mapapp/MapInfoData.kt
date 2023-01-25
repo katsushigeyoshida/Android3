@@ -778,6 +778,18 @@ class MapInfoData {
     }
 
     /**
+     * 地図データの最大ズーム値を求める
+     * mapTitleNum  地図データのNo
+     * return       最大ズーム値
+     */
+    fun getMapDataMaxZoom(mapTitleNum: Int = -1): Int {
+        if (0 <= mapTitleNum)
+            return getMaxZoom(mMapData[mapTitleNum][4])
+        else
+            return getMaxZoom(mMapData[mMapTitleNum][4])
+    }
+
+    /**
      * 地図データの重ね合わせ地図データのデータIDを求める
      * mapTitleNum  地図データのNo
      * return       データID
@@ -884,7 +896,7 @@ class MapInfoData {
      * default      数値がない時の値
      * return       ズーム値
      */
-    fun getMaxZoom(zoom: String, default: Int = 0): Int {
+    fun getMaxZoom(zoom: String, default: Int = 18): Int {
         var buf = ""
         var buf2 = ""
         for (i in zoom.indices) {

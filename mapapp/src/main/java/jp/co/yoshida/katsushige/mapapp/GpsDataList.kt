@@ -26,16 +26,26 @@ class GpsDataList {
     var mSaveFilePath = ""                          //  リストデータのファイル保存パス
     var mDisp = true                                //  表示フラグ
     var mPreSelectGroup = ""                        //  タイトルリストで指定したグループ名
+    enum class DATALISTSORTTYPE {
+        Non, DATE, TITLE, DISTANCE, ELEVATOR
+    }
+    var mDataListSortCending = false                //  ソート方向降順
+    var mDataListSortType = DATALISTSORTTYPE.DATE   //  ソート対象
+
     enum class SORTTYPE {
         Non, Normal, Reverse
     }
     var mSortName = listOf<String>( "ソートなし", "昇順", "降順")
     var mListSort = SORTTYPE.Non
+
     val mAllListName = "すべて"
 
     //  カラーメニュー
     val mColorMenu = listOf("Black", "Red", "Blue", "Green", "Yellow", "White",
         "Cyan", "Gray", "LightGray", "Magenta", "DarkGray", "Transparent")
+    //  分類メニュー
+    val mCategoryMenu = mutableListOf<String>(
+        "散歩", "ウォーキング", "ジョギング", "ランニング", "山歩き", "自転車", "車", "旅行")
 
     val klib = KLib()
 
@@ -50,10 +60,41 @@ class GpsDataList {
     }
 
     /**
+     * 年リストの取得
+     * firstItem        リストの最初に追加するアイテム
+     */
+    fun getYearList(firstItem:String = ""): List<String> {
+        var yearList = mutableListOf<String>()
+        if (0 < firstItem.length)
+            yearList.add(firstItem)
+        for (i in mDataList.indices) {
+            val year = mDataList[i].getYearStr()
+            if (!yearList.contains(year))
+                yearList.add(year)
+        }
+        return yearList
+    }
+
+    /**
+     * 分類リストの取得
+     * firstItem        リストの最初に追加するアイテム
+     */
+    fun getCategoryList(firstItem:String = ""): List<String> {
+        var categoryList = mutableListOf<String>()
+        if (0 < firstItem.length)
+            categoryList.add(firstItem)
+        for (i in mDataList.indices) {
+            if (!categoryList.contains(mDataList[i].mCategory))
+                categoryList.add(mDataList[i].mCategory)
+        }
+        return categoryList
+    }
+
+    /**
      *  グループリストの取得
      *  firstTitle  リストの最初に追加するタイトル
      */
-    fun getGroupList(firstTitle: String): List<String> {
+    fun getGroupList(firstTitle: String = ""): List<String> {
         var groupList = mutableListOf<String>()
         if (0 < firstTitle.length)
             groupList.add(firstTitle)
@@ -65,6 +106,61 @@ class GpsDataList {
     }
 
     /**
+     *  リストビューに表示するタイトルリストをつくる
+     *  return          タイトルリスト
+     */
+    fun getListTitleData(year: String, category: String, group: String): List<String> {
+        Log.d(TAG,"getListTitleData: "+mDataListSortCending+" "+mDataListSortType)
+        var titleList = mutableListOf<String>()
+        //  ソート処理
+        if (mDataListSortCending) {
+            if (mDataListSortType == DATALISTSORTTYPE.DATE) {
+                mDataList.sortWith({ a, b -> (a.mFirstTime.time / 1000 - b.mFirstTime.time / 1000).toInt() })
+            } else if (mDataListSortType == DATALISTSORTTYPE.TITLE) {
+                mDataList.sortWith({ a, b -> a.mTitle.compareTo(b.mTitle) })
+            } else if (mDataListSortType == DATALISTSORTTYPE.DISTANCE) {
+                mDataList.sortWith({ a, b -> (a.mDistance * 1000 - b.mDistance * 1000).toInt() })
+            } else if (mDataListSortType == DATALISTSORTTYPE.ELEVATOR) {
+                mDataList.sortWith({ a, b -> (a.mMaxElevation - b.mMaxElevation).toInt() })
+            }
+        } else {
+            if (mDataListSortType == DATALISTSORTTYPE.DATE) {
+                mDataList.sortWith({ b, a -> (a.mFirstTime.time / 1000 - b.mFirstTime.time / 1000).toInt() })
+            } else if (mDataListSortType == DATALISTSORTTYPE.TITLE) {
+                mDataList.sortWith({ b, a -> a.mTitle.compareTo(b.mTitle) })
+            } else if (mDataListSortType == DATALISTSORTTYPE.DISTANCE) {
+                mDataList.sortWith({ b, a -> (a.mDistance * 1000 - b.mDistance * 1000).toInt() })
+            } else if (mDataListSortType == DATALISTSORTTYPE.ELEVATOR) {
+                mDataList.sortWith({ b, a -> (a.mMaxElevation - b.mMaxElevation).toInt() })
+            }
+        }
+        //  表示タイトル設定
+        for (gpsFileData in mDataList) {
+            if ((year.compareTo(mAllListName) == 0 || gpsFileData.getYearStr().compareTo(year) == 0) &&
+                (category.compareTo(mAllListName) == 0 || gpsFileData.mCategory.compareTo(category) == 0) &&
+                (group.compareTo(mAllListName) == 0 || gpsFileData.mGroup.compareTo(group) == 0)) {
+                titleList.add(gpsFileData.getListTitle())
+                Log.d(TAG,"getListTitleData: "+gpsFileData.getListTitle())
+            }
+        }
+        return titleList
+    }
+
+    /**
+     * ソートタイプの設定をおこなう
+     * 現ソートタイプと同じであればソート方向を反転する
+     * sortType         ソートタイプ
+     */
+    fun setDataListSortType(sortType: DATALISTSORTTYPE) {
+        if (mDataListSortType == sortType) {
+            mDataListSortCending = !mDataListSortCending
+        } else {
+            mDataListSortType = sortType
+        }
+        Log.d(TAG,"setDataListSortType: "+mDataListSortCending+" "+mDataListSortType)
+    }
+
+    /**
      *  タイトルリストの取得
      *  group   検索する対象グループ名
      */
@@ -73,7 +169,7 @@ class GpsDataList {
         var titleList = mutableListOf<String>()
         for (gpsFileData in mDataList) {
             if (group.compareTo(mAllListName) == 0 || gpsFileData.mGroup.compareTo(group) == 0 &&
-                    !titleList.contains(gpsFileData.mTitle))
+                !titleList.contains(gpsFileData.mTitle))
                 titleList.add(gpsFileData.mTitle)
         }
         if (mListSort == SORTTYPE.Normal) {
@@ -81,7 +177,6 @@ class GpsDataList {
         } else if (mListSort == SORTTYPE.Reverse) {
             titleList.sortWith(Comparator{ a,b -> b.compareTo(a) })
         }
-
         return titleList
     }
 
@@ -111,7 +206,7 @@ class GpsDataList {
      *  group   検索対象グループ名
      */
     fun getDataNum(title: String, group: String): Int {
-        for (i in 0..mDataList.size - 1) {
+        for (i in mDataList.indices) {
             if (mDataList[i].mTitle.compareTo(title) == 0 &&
                     (group.compareTo(mAllListName) == 0 || mDataList[i].mGroup.compareTo(group) == 0))
                 return i
@@ -134,6 +229,78 @@ class GpsDataList {
     }
 
     /**
+     * GPXファイルで登録位置をファイルパスで検索する(大文字小文字無視)
+     * gpxFilePath      GPXファイルパス
+     * return           GPXファイルの登録位置
+     */
+    fun findGpxFile(gpxFilePath: String): Int {
+        for (i in mDataList.indices) {
+            if (mDataList[i].mFilePath.compareTo(gpxFilePath, true) == 0)
+                return i
+        }
+        return -1
+    }
+
+    /**
+     * GPXファイルで登録位置を開始時間で検索する(大文字小文字無視)
+     * firstTimeStr     開始時間(yyyy/MM/dd HH:mm:ss)
+     * return           GPXファイルの登録位置
+     */
+    fun findListTitleFirstTime(firstTimeStr: String): Int {
+        for (i in mDataList.indices) {
+            if (mDataList[i].getFirstTimeStr().compareTo(firstTimeStr, true) == 0)
+                return i
+        }
+        return -1
+    }
+
+    /**
+     * 開始時刻で削除する
+     * firstTimeStr     開始時刻(yyyy/MM/dd HH:mm:ss)
+     */
+    fun removeListData(firstTimeStr: String) {
+        val n = findListTitleFirstTime(firstTimeStr)
+        if (0 <= n)
+            mDataList.removeAt(n)
+    }
+
+    /**
+     * 指定項目を削除する
+     * n        データ位置
+     */
+    fun removeListData(n: Int) {
+        if (0 <= n)
+            mDataList.removeAt(n)
+    }
+
+    /**
+     * 全データの表示フラグをクリア(非表示)にする
+     */
+    fun clearVisible() {
+        for (i in mDataList.indices) {
+            mDataList[i].mVisible = false
+        }
+    }
+
+    /**
+     * 全データの表示フラグを表示にする
+     */
+    fun setAllVisible() {
+        for (i in mDataList.indices) {
+            mDataList[i].mVisible = true
+        }
+    }
+
+    /**
+     * 表示フラグを反転する
+     */
+    fun reverseVisible() {
+        for (i in mDataList.indices) {
+            mDataList[i].mVisible = !mDataList[i].mVisible
+        }
+    }
+
+    /**
      *  GPSトレースの表示
      *  canvas      描画canvas
      *  mapData     地図位置情報
@@ -149,6 +316,72 @@ class GpsDataList {
                 }
             }
         }
+    }
+
+    /**
+     *  リストデータの保存と表示設定をプリファレンスに登録
+     */
+    fun saveDataFile(c: Context) {
+        Log.d(TAG, "saveDataFile: "+mDataList.size+" "+mSaveFilePath)
+        saveDataFile(mSaveFilePath)
+        saveParameter(c)
+    }
+
+    /**
+     *  リストデータの読込と表示設定をプリファレンスから取得
+     */
+    fun loadDataFile(c: Context) {
+        loadDataFile(mSaveFilePath, false)
+        loadParameter(c)
+        Log.d(TAG, "loadDataFile: "+mDataList.size+" "+mSaveFilePath)
+    }
+
+    /**
+     *  マークリストを指定パスでファイルに保存
+     *  path        保存ファイル目
+     */
+    fun saveDataFile(path: String) {
+        if (mDataList.size == 0)
+            return
+        var dataList = mutableListOf<List<String>>()
+        for (gpsData in mDataList) {
+            dataList.add(gpsData.getStringData())
+        }
+        klib.saveCsvData(path, GpsFileData.mDataFormat, dataList)
+    }
+
+    /**
+     *  マークリストを指定ファイルから取得
+     *  path        ファイル名
+     *  add         追加読込の時
+     */
+    fun loadDataFile(path: String, add: Boolean) {
+        var file = File(path)
+        if (file.exists()) {
+            var dataList = klib.loadCsvData(path, GpsFileData.mDataFormat)
+            if (!add)
+                mDataList.clear()
+            for (data in dataList) {
+                var gpsData = GpsFileData()
+                gpsData.setStringData(data)
+                if (0 == getData(gpsData.mTitle, gpsData.mGroup).mTitle.length)
+                    mDataList.add(gpsData)
+            }
+        }
+    }
+
+    /**
+     *  プリファレンスにパラメータを保存
+     */
+    fun saveParameter(context: Context) {
+        klib.setBoolPreferences(mDisp, "GpsDataDisp", context)
+    }
+
+    /**
+     *  プリファレンスからパラメータを取得
+     */
+    fun loadParameter(context: Context) {
+        mDisp = klib.getBoolPreferences("GpsDataDisp", context)
     }
 
     /**
@@ -242,70 +475,6 @@ class GpsDataList {
         dialog.setNegativeButton("Cancel", null)
         dialog.show()
     }
-
-    /**
-     *  リストデータの保存と表示設定をプリファレンスに登録
-     */
-    fun saveDataFile(c: Context) {
-        saveDataFile(mSaveFilePath)
-        saveParameter(c)
-    }
-
-    /**
-     *  リストデータの読込と表示設定をプリファレンスから取得
-     */
-    fun loadDataFile(c: Context) {
-        loadDataFile(mSaveFilePath, false)
-        loadParameter(c)
-    }
-
-    /**
-     *  マークリストを指定パスでファイルに保存
-     *  path        保存ファイル目
-     */
-    fun saveDataFile(path: String) {
-        if (mDataList.size == 0)
-            return
-        var dataList = mutableListOf<List<String>>()
-        for (gpsData in mDataList) {
-            dataList.add(gpsData.getStringData())
-        }
-        klib.saveCsvData(path, GpsFileData.mDataFormat, dataList)
-    }
-
-    /**
-     *  マークリストを指定ファイルから取得
-     *  path        ファイル名
-     *  add         追加読込の時
-     */
-    fun loadDataFile(path: String, add: Boolean) {
-        var file = File(path)
-        if (file.exists()) {
-            var dataList = klib.loadCsvData(path, GpsFileData.mDataFormat)
-            if (!add)
-                mDataList.clear()
-            for (data in dataList) {
-                var gpsData = GpsFileData()
-                gpsData.setStringData(data)
-                if (0 == getData(gpsData.mTitle, gpsData.mGroup).mTitle.length)
-                    mDataList.add(gpsData)
-            }
-        }
-    }
-
-    /**
-     *  プリファレンスにパラメータを保存
-     */
-    fun saveParameter(context: Context) {
-        klib.setBoolPreferences(mDisp, "GpsDataDisp", context)
-    }
-
-    /**
-     *  プリファレンスからパラメータを取得
-     */
-    fun loadParameter(context: Context) {
-        mDisp = klib.getBoolPreferences("GpsDataDisp", context)
-    }
 }
 
 /**
@@ -316,24 +485,26 @@ class GpsFileData {
     var mLocData = mutableListOf<PointD>()  //  位置座標データ
     var mTitle = ""                         //  タイトル
     var mGroup = ""                         //  グループ名
+    var mCategory = ""                      //  分類
+    var mComment = ""                       //  コメント
+    var mFilePath = ""                      //  gpxファイルパス
+    var mVisible = true                     //  表示の可否
     var mLineColor = "Green"                //  表示線分の色
     var mThickness = 4f;                    //  表示線分の太さ
-    var mFilePath = ""                      //  gpxファイルパス
-    var mComment = ""                       //  コメント
-    var mVisible = true                     //  表示の可否
-    companion object {
-        var mDataFormat = listOf<String>(   //  ファイル保存時の項目タイトル
-                "Title", "Group", "Comment", "FilePath", "Visible", "Color", "Thickness",
-                "Left", "Top", "Right", "Bottom", "Distance", "MinElevator", "MaxElevator",
-                "FirstTime", "LastTime"
-        )
-    }
-    var mLocArea = RectD()                  //  位置領域(緯度経度座標9
-    var mDistance = 0.0                     //  移動距離8km)
-    var mMinElevation = 0.0                 //  最小標高8m)
-    var mMaxElevation = 0.0                 //  再考標高8m)
+    var mLocArea = RectD()                  //  位置領域(緯度経度座標)
+    var mDistance = 0.0                     //  移動距離(km)
+    var mMinElevation = 0.0                 //  最小標高(m)
+    var mMaxElevation = 0.0                 //  最高標高(m)
     var mFirstTime = Date()                 //  開始時間
     var mLastTime = Date()                  //  終了時間
+
+    companion object {
+        var mDataFormat = listOf<String>(   //  ファイル保存時の項目タイトル
+            "Title", "Group", "Category", "Comment", "FilePath", "Visible", "Color", "Thickness",
+            "Left", "Top", "Right", "Bottom", "Distance", "MinElevator", "MaxElevator",
+            "FirstTime", "LastTime"
+        )
+    }
 
     val klib = KLib()
 
@@ -389,6 +560,7 @@ class GpsFileData {
         var dataList = mutableListOf<String>()
         dataList.add(mTitle)
         dataList.add(mGroup)
+        dataList.add(mCategory)
         dataList.add(mComment)
         dataList.add(mFilePath)
         dataList.add(mVisible.toString())
@@ -410,31 +582,26 @@ class GpsFileData {
     //
     /**
      *  文字データ配列でパラメータに設定
-     *  data    パラメータの文字配列]
+     *  data    パラメータの文字配列
      */
     fun setStringData(data: List<String>) {
-        if (data.size < 7)
-            return
-        mTitle     = data[0]
-        mGroup     = data[1]
-        mComment   = data[2]
-        mFilePath  = data[3]
-        mVisible   = data[4].toBoolean()
-        mLineColor = data[5]
-        mThickness = data[6].toFloat()
-        if (data.size < 11)
-            return
-        mLocArea.left   = data[7].toDouble()
-        mLocArea.top    = data[8].toDouble()
-        mLocArea.right  = data[9].toDouble()
-        mLocArea.bottom = data[10].toDouble()
-        if (data.size < 16)
-            return
-        mDistance     = data[11].toDouble()
-        mMinElevation = data[12].toDouble()
-        mMaxElevation = data[13].toDouble()
-        mFirstTime    = Date(data[14].toLong())
-        mLastTime     = Date(data[15].toLong())
+        mTitle          = data[0]
+        mGroup          = data[1]
+        mCategory       = data[2]
+        mComment        = data[3]
+        mFilePath       = data[4]
+        mVisible        = data[5].toBoolean()
+        mLineColor      = data[6]
+        mThickness      = data[7].toFloat()
+        mLocArea.left   = data[8].toDouble()
+        mLocArea.top    = data[9].toDouble()
+        mLocArea.right  = data[10].toDouble()
+        mLocArea.bottom = data[11].toDouble()
+        mDistance       = data[12].toDouble()
+        mMinElevation   = data[13].toDouble()
+        mMaxElevation   = data[14].toDouble()
+        mFirstTime      = Date(data[15].toLong())
+        mLastTime       = Date(data[16].toLong())
     }
 
     /**
@@ -442,12 +609,52 @@ class GpsFileData {
      */
     fun getInfoData(): String {
         var buffer = ""
-        buffer += "開始時間 " + klib.date2String( mFirstTime, "yyyy/MM/dd HH:mm:ss") + " "
+        buffer += "開始時間 " + klib.date2String( mFirstTime, "yyyy/MM/dd HH:mm:ss") + "\n"
         buffer += "終了時間 " + klib.date2String( mLastTime, "yyyy/MM/dd HH:mm:ss") + "\n"
         buffer += "経過時間 " + klib.lap2String(mLastTime.time - mFirstTime.time) + "\n"
-        buffer += "移動距離 " + "%.2f km".format(mDistance)
-        buffer += " 速度　%.1f km/h".format(mDistance/(mLastTime.time - mFirstTime.time)*60*60*1000) + "\n"
+        buffer += "移動距離 " + "%.2f km  ".format(mDistance)
+        buffer += "速度　%.1f km/h".format(mDistance/(mLastTime.time - mFirstTime.time)*60*60*1000) + "\n"
         buffer += "最大標高 %.0f m".format(mMaxElevation) + " 最小標高 %.0f m".format(mMinElevation)
         return buffer
+    }
+
+    /**
+     * 一覧リスト用タイトル
+     */
+    fun getListTitle(): String {
+        var title = if (mVisible) "*" else " "
+        title += getFirstTimeStr() + " "
+        title += mTitle +"\n"
+        title += "[" + mCategory + "]"
+        title += "[" + mGroup + "] "
+        title += "%.2f km".format(mDistance)
+        title += "(" + klib.lap2String(mLastTime.time - mFirstTime.time) + ") "
+        title += "%.1f km/h".format(mDistance/(mLastTime.time - mFirstTime.time)*60*60*1000) + " "
+        title += "%.0f m".format(mMinElevation) + "-" + "%.0f m".format(mMaxElevation)
+        return title
+    }
+
+    /**
+     * データの開始日時の年を取出す(xxxx年)
+     * return           xxxx年
+     */
+    fun getYearStr(): String {
+        return klib.date2String(mFirstTime, "yyyy年")
+    }
+
+    /**
+     * 開始時間を文字列で取得
+     * return       開始時間の文字列
+     */
+    fun getFirstTimeStr(): String {
+        return klib.date2String(mFirstTime, "yyyy/MM/dd HH:mm:ss")
+    }
+
+    /**
+     * 平均速度の取得(km/h)
+     * return       速度(km/h)
+     */
+    fun getSpeed():Double {
+        return mDistance/(mLastTime.time - mFirstTime.time)*60*60*1000
     }
 }

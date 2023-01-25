@@ -45,6 +45,7 @@ class GpsTrace {
     var mLineColors = listOf(                       //  色リスト
         Color.BLUE, Color.CYAN, Color.MAGENTA, Color.RED, Color.YELLOW, Color.GREEN)
     var mTempFileNameList = mutableListOf<String>() //  データ受け渡し用の一時ファイルリスト
+    var mDataFolder = "";
     lateinit var mC: Context
     val klib = KLib()
 
@@ -670,7 +671,7 @@ class GpsTrace {
      */
     fun gpsTraceExport() {
         var listFile = klib.getFileList(mGpsTraceFileFolder, false, "*.csv")
-        listFile = listFile.sortedByDescending { it.nameWithoutExtension }
+        listFile = listFile.sortedByDescending { it.lastModified() }
         var fileNameList = Array<String>(listFile.size, { i -> listFile[i].nameWithoutExtension })
         var chkList = BooleanArray(listFile.size)
         klib.setChkMenuDialog(mC, "ファイルリスト", fileNameList, chkList, iGpsTraceExport)
@@ -680,7 +681,7 @@ class GpsTrace {
     //  s       ファイルのチェックリスト
     var iGpsTraceExport = Consumer<BooleanArray> { s ->
         var listFile = klib.getFileList(mGpsTraceFileFolder, false, "*.csv")
-        listFile = listFile.sortedByDescending { it.nameWithoutExtension }
+        listFile = listFile.sortedByDescending { it.lastModified() }
         //  選択ファイルリスト作成
         mTempFileNameList.clear()
         for (i in s.indices) {
