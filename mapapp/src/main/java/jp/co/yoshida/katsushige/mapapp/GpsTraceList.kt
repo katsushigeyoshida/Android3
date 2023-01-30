@@ -599,8 +599,12 @@ class GpsTraceList {
                 loadGpxData()
             }
         }
+<<<<<<< HEAD
 
         /**
+=======
+            /**
+>>>>>>> 29457e930d992ce0eae4ca5cc76e6b39eb830919
          * GPXファイルデータの読込と情報設定
          */
         fun loadGpxData(){
