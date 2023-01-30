@@ -8,6 +8,9 @@ import androidx.core.util.Consumer
 import jp.co.yoshida.katsushige.mapapp.databinding.ActivityGpsCsvEditBinding
 import jp.co.yoshida.katsushige.mylib.KLib
 
+/**
+ * 現在未使用 GpxEditActivityに統一
+ */
 class GpsCsvEditActivity : AppCompatActivity() {
     val TAG = "GpsCsvEditActivity"
 
@@ -88,7 +91,8 @@ class GpsCsvEditActivity : AppCompatActivity() {
         //  登録処理
         btOK.setOnClickListener {
             val gpsTraceData = GpsTraceList.GpsTraceData()
-            gpsTraceData.loadGpsData(edGpsFilePath.text.toString(), false)
+            gpsTraceData.mFilePath = edGpsFilePath.text.toString()
+            gpsTraceData.loadGpsData(false)
             gpsTraceData.mTitle = edTitle.text.toString()
             gpsTraceData.mGroup = edGroup.text.toString()
             gpsTraceData.mCategory = mGpsTraceList.mCategoryMenu[spCategory.selectedItemPosition]
@@ -134,7 +138,7 @@ class GpsCsvEditActivity : AppCompatActivity() {
 
 
     fun setDataGpsCsvFile(gpsCsvFilePath: String) {
-        mGpsCsvFilePos = mGpsTraceList.findGpsCsvFile(gpsCsvFilePath)
+        mGpsCsvFilePos = mGpsTraceList.findGpsFile(gpsCsvFilePath)
         if (0 <= mGpsCsvFilePos) {
             Log.d(TAG, "setDataGpsCsvFile: "+mGpsCsvFilePos+" "+gpsCsvFilePath)
             edTitle.setText(mGpsTraceList.mDataList[mGpsCsvFilePos].mTitle)
@@ -155,7 +159,7 @@ class GpsCsvEditActivity : AppCompatActivity() {
      */
     fun setGpsCsvFileInfo(gpsTraceFilePath: String) {
         val gpsTraceData = GpsTraceList.GpsTraceData()
-        gpsTraceData.loadGpsData(gpsTraceFilePath)
+        gpsTraceData.loadGpsData()
         tvGpsFileInfo.setText(gpsTraceData.getInfoData())
         tvYear.setText(klib.date2String( gpsTraceData.mFirstTime, "yyyy年"))
         if(spCategory.selectedItemPosition < 0) {

@@ -36,10 +36,12 @@ class GpxEditActivity : AppCompatActivity() {
     lateinit var spColor: Spinner
     lateinit var spCategory: Spinner
 
-    var mGpxDataList = GpsDataList()                    //  GPXファイルリスト
     var mGpxDataListPath = ""                           //  GPXファイルリストパス
     var mGpxFilePath = ""                               //  GPXファイルパス
     var mGpxFilePos = -1                                //  選択されたGPXファイル位置
+    var mNewFile = false                                //  新規登録
+
+    var mGpxDataList = GpsTraceList()                   //  GPXファイルリスト
     val klib = KLib()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,11 +49,10 @@ class GpxEditActivity : AppCompatActivity() {
         setContentView(R.layout.activity_gpx_edit)
         this.title = "GPXファイル登録"
 
-        mGpxDataListPath = klib.getStrPreferences("GpxDataListPath", this).toString()
-        mGpxDataList.mSaveFilePath = mGpxDataListPath
-        mGpxDataList.loadDataFile(this)
-
-        initControl()
+        mGpxDataListPath = klib.getStrPreferences("GpsTraceListPath", this).toString()
+        mGpxDataList.mGpsTraceListPath = mGpxDataListPath
+        mGpxDataList.loadListFile()
+        Log.d(TAG, "onCreate: "+mGpxDataListPath+" "+mGpxFilePath)
 
         val intent = getIntent()
         val action = intent.getAction();
@@ -65,24 +66,15 @@ class GpxEditActivity : AppCompatActivity() {
             }
         }else{
             //  内部からの呼び出し
-            mGpxFilePath = intent.getStringExtra("GPXFILEPATH").toString()
+            mGpxDataListPath = intent.getStringExtra("GPSTRACELISTPATH").toString()
+            mGpxFilePath = intent.getStringExtra("GPSTRACEFILEPATH").toString()
+            if (mGpxFilePath.length == 0)
+                mNewFile = true
         }
-        Log.d(TAG, "onCreate: "+mGpxFilePath+" "+action.toString())
+        Log.d(TAG, "onCreate: "+mGpxDataListPath+" "+mGpxFilePath)
 
+        initControl()
         setDataGpxFile(mGpxFilePath)
-    }
-
-    /**
-     * URIからパスを取得する
-     * uri      ファイルのURI
-     * return   フルパス
-     */
-    fun getPath(uri: Uri): String {
-        val uriPath = uri.path.toString()
-        var path = klib.getInternalStrage() + uriPath.substring(klib.indexOf(uriPath, "/",1))
-        if (!klib.existsFile(path))
-            path = klib.getExternalStrage(this) + uriPath.substring(klib.indexOf(uriPath, "/",1))
-        return path
     }
 
     /**
@@ -111,13 +103,19 @@ class GpxEditActivity : AppCompatActivity() {
         edGpxPath.setText("")
         edComment.setText("")
         tvGpxInfo.setText("")
+        if (mNewFile)
+            btGpxPathRef.isEnabled = true
+        else
+            btGpxPathRef.isEnabled = false
 
         //  線分の色のSpinner
-        var colorAdapter = ArrayAdapter(this, R.layout.support_simple_spinner_dropdown_item, mGpxDataList.mColorMenu)
+        var colorAdapter = ArrayAdapter(
+            this, R.layout.support_simple_spinner_dropdown_item, mGpxDataList.mColorMenu)
         spColor.adapter = colorAdapter
 
         //  分類のSpinner
-        var categoryAdapter = ArrayAdapter(this, R.layout.support_simple_spinner_dropdown_item, mGpxDataList.mCategoryMenu)
+        var categoryAdapter = ArrayAdapter(
+            this, R.layout.support_simple_spinner_dropdown_item, mGpxDataList.mCategoryMenu)
         spCategory.adapter = categoryAdapter
 
         //  グループ設定
@@ -144,22 +142,27 @@ class GpxEditActivity : AppCompatActivity() {
 
         //  登録処理
         btOK.setOnClickListener {
-            val gpsFileData = GpsFileData()
-            gpsFileData.getFileData(edGpxPath.text.toString())
-            gpsFileData.mTitle = edTitle.text.toString()
-            gpsFileData.mGroup = edGroup.text.toString()
-            gpsFileData.mCategory = mGpxDataList.mCategoryMenu[spCategory.selectedItemPosition]
-            gpsFileData.mLineColor = mGpxDataList.mColorMenu[spColor.selectedItemPosition]
-            gpsFileData.mComment = edComment.text.toString()
-            if (0 <= mGpxFilePos) {
-                mGpxDataList.mDataList[mGpxFilePos] = gpsFileData
+            if (mNewFile && 0 <= mGpxDataList.findGpsFile(edGpxPath.text.toString()) ){
+                klib.messageDialog(this, "確認", "既にファイルが登録されています")
             } else {
-                mGpxDataList.mDataList.add(gpsFileData)
-            }
-            mGpxDataList.saveDataFile(this)
+                val gpsFileData = GpsTraceList.GpsTraceData()
+                gpsFileData.mFilePath = edGpxPath.text.toString()
+                gpsFileData.loadGpsData(false)
+                gpsFileData.mTitle = edTitle.text.toString()
+                gpsFileData.mGroup = edGroup.text.toString()
+                gpsFileData.mCategory = mGpxDataList.mCategoryMenu[spCategory.selectedItemPosition]
+                gpsFileData.mLineColor = mGpxDataList.mColorMenu[spColor.selectedItemPosition]
+                gpsFileData.mComment = edComment.text.toString()
+                if (0 <= mGpxFilePos) {
+                    mGpxDataList.mDataList[mGpxFilePos] = gpsFileData
+                } else {
+                    mGpxDataList.mDataList.add(gpsFileData)
+                }
+                mGpxDataList.saveListFile()
 
-            setResult(RESULT_OK)
-            finish()
+                setResult(RESULT_OK)
+                finish()
+            }
         }
 
         //  キャンセル
@@ -178,13 +181,17 @@ class GpxEditActivity : AppCompatActivity() {
     var  iGpxFilePath = Consumer<String>() { s ->
         Toast.makeText(this, s, Toast.LENGTH_LONG).show()
         if (0 < s.length) {
-            edGpxPath.setText(s)
-            //  選択ファイルのフォルダを保存
-            klib.setStrPreferences(klib.getFolder(s), "GpxFileFolder", this)
-            if (edTitle.text.length == 0)
-                edTitle.setText(klib.getFileNameWithoutExtension(s))
-            //  GPSデータの取得と登録
-            setGpxFileInfo(s)
+            if (0 <= mGpxDataList.findGpsFile(s) ){
+                klib.messageDialog(this, "確認", "既にファイルが登録されています")
+            } else {
+                edGpxPath.setText(s)
+                //  選択ファイルのフォルダを保存
+                klib.setStrPreferences(klib.getFolder(s), "GpxFileFolder", this)
+                if (edTitle.text.length == 0)
+                    edTitle.setText(klib.getFileNameWithoutExtension(s))
+                //  GPSデータの取得と登録
+                setGpxFileInfo(s)
+            }
         }
     }
 
@@ -193,18 +200,19 @@ class GpxEditActivity : AppCompatActivity() {
      * gpxFilePath      GPXファイルのパス名
      */
     fun setDataGpxFile(gpxFilePath: String) {
-        mGpxFilePos = mGpxDataList.findGpxFile(gpxFilePath)
+        mGpxFilePos = mGpxDataList.findGpsFile(gpxFilePath)
         if (0 <= mGpxFilePos) {
+            //  既存データ
             Log.d(TAG, "setDataGpxFile: "+mGpxFilePos+" "+gpxFilePath)
+            setGpxFileInfo(mGpxDataList.mDataList[mGpxFilePos].mFilePath)
             edTitle.setText(mGpxDataList.mDataList[mGpxFilePos].mTitle)
             edGroup.setText(mGpxDataList.mDataList[mGpxFilePos].mGroup)
             edGpxPath.setText(mGpxDataList.mDataList[mGpxFilePos].mFilePath)
             edComment.setText(mGpxDataList.mDataList[mGpxFilePos].mComment)
-            setGpxFileInfo(mGpxDataList.mDataList[mGpxFilePos].mFilePath)
             spColor.setSelection(mGpxDataList.mColorMenu.indexOf(mGpxDataList.mDataList[mGpxFilePos].mLineColor))
             spCategory.setSelection(mGpxDataList.mCategoryMenu.indexOf(mGpxDataList.mDataList[mGpxFilePos].mCategory))
         } else {
-            edGpxPath.setText(gpxFilePath)
+            //  新規データ
             setGpxFileInfo(gpxFilePath)
         }
     }
@@ -213,23 +221,28 @@ class GpxEditActivity : AppCompatActivity() {
      * GPXファイルからGPX情報と測定年をコントロールに登録
      */
     fun setGpxFileInfo(gpxFilePath: String) {
-        val gpsFileData = GpsFileData()
-        gpsFileData.getFileData(gpxFilePath)
+        val gpsFileData = GpsTraceList.GpsTraceData()
+        gpsFileData.mFilePath = gpxFilePath
+        gpsFileData.loadGpsData()
+        edTitle.setText(klib.getFileNameWithoutExtension(gpxFilePath))
+        spCategory.setSelection(mGpxDataList.mCategoryMenu.indexOf(gpsFileData.mCategory))
+        edGpxPath.setText(gpxFilePath)
         tvGpxInfo.setText(gpsFileData.getInfoData())
         tvYear.setText(klib.date2String( gpsFileData.mFirstTime, "yyyy年"))
-        if(spCategory.selectedItemPosition < 0) {
-            var v = gpsFileData.getSpeed()
-            if (20 < v)
-                spCategory.setSelection(mGpxDataList.mCategoryMenu.indexOf("車"))
-            else if (12 < v)
-                spCategory.setSelection(mGpxDataList.mCategoryMenu.indexOf("自転車"))
-            else if (6 < v)
-                spCategory.setSelection(mGpxDataList.mCategoryMenu.indexOf("ジョギング"))
-            else
-                spCategory.setSelection(mGpxDataList.mCategoryMenu.indexOf("散歩"))
-        }
     }
 
+    /**
+     * URIからパスを取得する
+     * uri      ファイルのURI
+     * return   フルパス
+     */
+    fun getPath(uri: Uri): String {
+        val uriPath = uri.path.toString()
+        var path = klib.getInternalStrage() + uriPath.substring(klib.indexOf(uriPath, "/",1))
+        if (!klib.existsFile(path))
+            path = klib.getExternalStrage(this) + uriPath.substring(klib.indexOf(uriPath, "/",1))
+        return path
+    }
 
     /**
      * GPXファイルのグラフ表示画面に移行する

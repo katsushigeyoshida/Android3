@@ -55,10 +55,8 @@ class MapView(context: Context,var mMapData: MapData): View(context) {
         mMeasure.draw(canvas, mMapData)
         //  GPSトレースの表示
         mGpsTrace.draw(canvas, mMapData)
-        //  GPSトレース表示
+        //  GPSトレースリスト表示
         mGpsTraceList.draw(canvas, mMapData)
-        //  GPSデータ表示
-        mGpsDataList.draw(canvas, mMapData)
         //  中心線
         drawCross(canvas)
         //  座標と標高の表示

@@ -22,7 +22,6 @@ import jp.co.yoshida.katsushige.mapapp.databinding.ActivityMainBinding
 import jp.co.yoshida.katsushige.mylib.DownLoadWebFile
 import jp.co.yoshida.katsushige.mylib.KLib
 import jp.co.yoshida.katsushige.mylib.PointD
-import kotlinx.coroutines.runBlocking
 import java.io.File
 
 //  GPS位置情報取得
@@ -216,7 +215,6 @@ class MainActivity : AppCompatActivity() {
      */
     fun chkManageAllFilesAccess() {
         var file = File("/storage/emulated/0/chkManageAllFilesAccess.txt")
-        Log.d(TAG,"chkManageAllFilesAccess:")
         try {
             if (file.createNewFile()) {
                 Log.d(TAG,"chkManageAllFilesAccess: create " + "OK")
@@ -254,6 +252,7 @@ class MainActivity : AppCompatActivity() {
         mGpsTraceList.mGpsTraceListPath = mGpsTraceListPath
         mGpsTraceList.mGpsTraceFileFolder = mGpsTraceFileFolder
         mGpsTraceList.loadListFile()
+        klib.setStrPreferences(mGpsTraceListPath, "GpsTraceListPath", this)
     }
 
     /**
@@ -261,17 +260,6 @@ class MainActivity : AppCompatActivity() {
      */
     override fun onStop() {
         Log.d(TAG,"onStop")
-        if (mGpsTrace.mGpxConvertOn) {
-            //  GPX変換が終わっていなければ処理待ちをおこなう
-            Toast.makeText(this, "GPX変換エキスポート中", Toast.LENGTH_LONG).show()
-            runBlocking {
-                try {
-                    mGpsTrace.mGpxConvertJob.join()
-                } catch (e: Exception) {
-                    Log.d(TAG, "onStop : " + e.message)
-                }
-            }
-        }
         //  データの保存
         mMapInfoData.saveMaoInfoData(mMapInfoDataPath)  //  地図データリストの保存
         mMapData.saveParameter()                        //  地図パラメータの保存
@@ -282,7 +270,14 @@ class MainActivity : AppCompatActivity() {
         mGpxDataList.saveDataFile(this)             //  GPSデータリストの保存
         mGpsTraceList.saveListFile()                    //  GPSトレースリストの保存
 
-        super.onStop()
+        //  GPX変換が終わっていなければ処理待ちをおこなう
+        if (GpsTraceList.mGpxConvertOn) {
+            Log.d(TAG, "onStop : " + "GPX変換エキスポート中")
+            klib.messageDialog(this, "確認", "GPX変換中ですが終了しますか", iStopOperation)
+        } else {
+            Log.d(TAG, "onStop : " + "GPX変換終了")
+            super.onStop()
+        }
     }
 
     /**
@@ -292,6 +287,13 @@ class MainActivity : AppCompatActivity() {
         Log.d(TAG,"onDestroy")
         //  データの保存
         super.onDestroy()
+    }
+
+    var iStopOperation = Consumer<String> { s ->
+        if (s.compareTo("OK") == 0) {
+            GpsTraceList.mGpxConvertOn = false
+            finish()
+        }
     }
 
 
@@ -407,34 +409,6 @@ class MainActivity : AppCompatActivity() {
                     spSetMapInfoData()
                 }
             }
-            REQUESTCODE_GPXEDIT -> {
-                //  GPXファイルデータ登録/編集画面
-                if (resultCode == RESULT_OK) {
-                    Log.d(TAG, "onActivityResult: GPXEDIT " + resultCode)
-                    mGpxDataList.loadDataFile(this)
-                    mapDisp(mMapDataDownLoadMode)     //  再表示
-                }
-            }
-            REQUESTCODE_GPXFILELIST -> {
-                //  GPXファイルリスト画面
-                if (resultCode == RESULT_OK) {
-                    mGpxDataList.loadDataFile(this)
-                    //  座標指定移動
-                    val coordinate = data?.getStringExtra("座標") //  [139.68142458, 35.56965361]
-                    Log.d(TAG,"onActivityResult:　GPXFILELIST " + coordinate)
-                    if (coordinate != null && 0 < coordinate.length) {
-                        val pos = coordinate.split(',')
-                        Log.d(TAG,"onActivityResult: " + pos.toString())
-                        if (pos.size == 2) {
-                            val ctr = PointD(pos[0].toDouble(), pos[1].toDouble())
-                            if (ctr.x != 0.0 && ctr.y != 0.0) {
-                                mMapData.setLocation(mMapData.coordinates2BaseMap(ctr))
-                            }
-                        }
-                    }
-                    mapDisp(mMapDataDownLoadMode)     //  再表示
-                }
-            }
             REQUESTCODE_GPSTRACELIST -> {
                 //  GPSトレースリスト画面
                 if (resultCode == RESULT_OK) {
@@ -466,8 +440,6 @@ class MainActivity : AppCompatActivity() {
         item0.setIcon(android.R.drawable.ic_menu_set_as)
         val item1 = menu.add(Menu.NONE, MENU01, Menu.NONE, "登録画面...")
         item1.setIcon(android.R.drawable.ic_menu_set_as)
-        val item3 = menu.add(Menu.NONE, MENU03, Menu.NONE, "GPXファイルリスト...")
-        item3.setIcon(android.R.drawable.ic_menu_set_as)
         val item4 = menu.add(Menu.NONE, MENU04, Menu.NONE, "GPSトレースリスト...")
         item4.setIcon(android.R.drawable.ic_menu_set_as)
         val item6 = menu.add(Menu.NONE, MENU06, Menu.NONE, "マーク操作...")
@@ -518,9 +490,6 @@ class MainActivity : AppCompatActivity() {
             MENU02 -> {      //  地図データ編集
                 setMapInfoData()
             }
-            MENU03 -> {     //  GpxList
-                gpGpxFileList()
-            }
             MENU04 -> {     //  GpsTraceList
                 gpGpsTraceList()
             }
@@ -528,7 +497,7 @@ class MainActivity : AppCompatActivity() {
                 markOperationMenu()
             }
             MENU07 -> {     //  Wikiリスト
-                wikiListMenu()
+                goWikiList()
             }
             MENU08 -> {     //  地図データ一括ダウンロード
                 mapDataDownLoadAll()
@@ -1018,6 +987,7 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * Web上の地図データをタイルを指定してダウンロードする
+     * {z}{x}{y}を数値に入れ換えてURLとダウンロードファイル名を作成
      * mapOrgUrl    地図データのWebアドレス
      * mapTitle     地図データのID名
      * zoom         ズームレベル
@@ -1037,11 +1007,18 @@ class MainActivity : AppCompatActivity() {
         return mapFileDownLoad(mapUrl, dataUrl, fileUdate)
     }
 
-    fun mapFileDownLoad(mapUrl: String, dataUrl: String, fileUdate: WebFileDownLoad): File {
+    /**
+     * URLとダウンロードファイル名からダウンロードパスを作成し、ファイルをダウンロードする
+     * mapUrl           データのURL
+     * dataUrl          データのファイル名
+     * fileUpdate       ファイルの更新条件
+     * return           Fileデータ
+     */
+    fun mapFileDownLoad(mapUrl: String, dataUrl: String, fileUpdate: WebFileDownLoad): File {
         //  保存フォルダ
         var downLoadFile = File(mBaseFolder + dataUrl)
-        if ((fileUdate == WebFileDownLoad.ALLUPDATE || !downLoadFile.exists()) && fileUdate != WebFileDownLoad.OFFLINE) {
-            if (fileUdate != WebFileDownLoad.NORMAL || !mImageFileSet.contains(dataUrl)) {
+        if ((fileUpdate == WebFileDownLoad.ALLUPDATE || !downLoadFile.exists()) && fileUpdate != WebFileDownLoad.OFFLINE) {
+            if (fileUpdate != WebFileDownLoad.NORMAL || !mImageFileSet.contains(dataUrl)) {
                 var downLoad = DownLoadWebFile(mapUrl, downLoadFile.path)
                 downLoad.start()
                 while (downLoad.isAlive()) {
@@ -1085,7 +1062,6 @@ class MainActivity : AppCompatActivity() {
         var zoom = mapData.mZoom
         var cmp = mp;
         var eleZoomMax = mapData.mMapInfoData.getElevatorMaxZoom(mElevatorDataNo)
-        Log.d(TAG, "getMapElevator: " + mapData.mMapInfoData.mMapElevatorData[mElevatorDataNo][4] + " " + eleZoomMax)
         if (eleZoomMax < mapData.mZoom) {
             //  標高データはズームレベル15(DEM5)までなのでそれ以上は15のデータを取得
             cmp = mapData.cnvMapPositionZoom(eleZoomMax, mp);
@@ -1206,7 +1182,7 @@ class MainActivity : AppCompatActivity() {
             5 -> {                      //
                 var coord = mMapData.baseMap2Coordinates(mMapData.getCenter())
                 var coordString = "北緯" + "%.8f".format(coord.y) + "度東経" + "%.8f".format(coord.x) + "度 20km以内"
-                wikiListMenu(coordString)
+                goWikiList(coordString)
             }
             6 -> {                      //  距離測定の開始・終了
                 if (mLongTouchMenu[n].compareTo("距離測定開始") == 0) {
@@ -1610,20 +1586,13 @@ class MainActivity : AppCompatActivity() {
      * Wikiリストの起動
      * coordstr     検索座標文字列
      */
-    fun wikiListMenu(coordStr: String = "") {
+    fun goWikiList(coordStr: String = "") {
         mMarkList.saveMarkFile(this)
         val intent = Intent(this, WikiList::class.java)
         intent.putExtra("COORDINATE", coordStr)
         startActivityForResult(intent, REQUESTCODE_WIKI)
     }
 
-    /**
-     * GPXのファイルリスト
-     */
-    fun gpGpxFileList() {
-        val intent = Intent(this, GpxListActivity::class.java)
-        startActivityForResult(intent, REQUESTCODE_GPXFILELIST)
-    }
 
     /**
      * GPSトレースリスト

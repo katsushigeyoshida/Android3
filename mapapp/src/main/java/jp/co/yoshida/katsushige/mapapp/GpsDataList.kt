@@ -18,6 +18,7 @@ import java.io.File
 import java.util.*
 
 /**
+ * 現在未使用 GpsTraceListに移行
  * GPSデータのリストデータ管理
  */
 class GpsDataList {
