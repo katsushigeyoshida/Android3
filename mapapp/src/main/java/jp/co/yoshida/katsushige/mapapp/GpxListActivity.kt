@@ -11,6 +11,9 @@ import androidx.core.view.size
 import jp.co.yoshida.katsushige.mapapp.databinding.ActivityGpxListBinding
 import jp.co.yoshida.katsushige.mylib.KLib
 
+/**
+ * 現在未使用 GpsTraceListActivityに統一
+ */
 class GpxListActivity : AppCompatActivity() {
     val TAG = "GpxListActivity"
 

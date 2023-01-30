@@ -256,7 +256,7 @@ class MapData(var context: Context, var mMapInfoData: MapInfoData) {
             eleZoom = eleZoomMax
         }
         var downloadPath = mBaseFolder + mMapInfoData.getElevatorDataId(mElevatorDataNo) +
-            "/" + eleZoom.toString() + "/" + pos.x + "/" + pos.y + "." +
+            "/" + eleZoom.toString() + "/" + pos.x.toInt() + "/" + pos.y.toInt() + "." +
                 mMapInfoData.getElevatorDataExt(mElevatorDataNo)
         return downloadPath
     }

@@ -11,6 +11,9 @@ import androidx.core.view.size
 import jp.co.yoshida.katsushige.mapapp.databinding.ActivityGpsTraceListBinding
 import jp.co.yoshida.katsushige.mylib.KLib
 
+/**
+ * GPSトレースデータ(CSVファイル)の管理
+ */
 class GpsTraceListActivity : AppCompatActivity() {
     val TAG = "GpsTraceListActivity"
 
@@ -20,6 +23,8 @@ class GpsTraceListActivity : AppCompatActivity() {
     lateinit var spCategory: Spinner
     lateinit var btUpdate: Button
     lateinit var btTrash: Button
+    lateinit var btExport: Button
+    lateinit var btAdd: Button
     lateinit var btSort: Button
     lateinit var btRoute: Button
     lateinit var btSelect: Button
@@ -33,7 +38,7 @@ class GpsTraceListActivity : AppCompatActivity() {
         "全表示", "全非表示", "反転表示", "選択表示"
     )
     val mRemoveMenu = listOf<String>(
-        "表示分ゴミ箱", "全ゴミ箱解除", "表示分削除"
+        "表示分ゴミ箱", "全ゴミ箱解除", "ゴミ箱から削除"
     )
     val mSelectRemoveMenu = listOf<String>(
         "ゴミ箱", "ゴミ箱解除", "完全削除"
@@ -45,7 +50,7 @@ class GpsTraceListActivity : AppCompatActivity() {
         "再表示", "データファイル確認", "初期化"
     )
     val mItemClickMenu = listOf<String>(
-        "編集", "経路表示", "位置移動", "グラフ表示", "ゴミ箱"
+        "編集", "経路表示", "位置移動", "グラフ表示", "ゴミ箱", "GPXエクスポート"
     )
 
     var mSelectListPosition = -1
@@ -59,6 +64,7 @@ class GpsTraceListActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_gps_trace_list)
+        title = "GPSトレース"
 
         mGpsTraceFileFolder = intent.getStringExtra("GPSTRACEFOLDER").toString()
         mGpsTraceListPath = intent.getStringExtra("GPSTRACELISTPATH").toString()
@@ -68,6 +74,10 @@ class GpsTraceListActivity : AppCompatActivity() {
         mGpsTraceList.mGpsTraceListPath = mGpsTraceListPath
         mGpsTraceList.loadListFile()
         mGpsTraceList.getFileData()
+        if (0 < mGpsTraceList.mErrorMessage.length) {
+            klib.messageDialog(this, "エラー", mGpsTraceList.mErrorMessage)
+            mGpsTraceList.mErrorMessage = ""
+        }
 
         initControl()
     }
@@ -91,6 +101,9 @@ class GpsTraceListActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * コントロールの初期化とデータの設定
+     */
     fun initControl() {
         binding = ActivityGpsTraceListBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -99,6 +112,8 @@ class GpsTraceListActivity : AppCompatActivity() {
         spCategory = binding.spinner9
         btUpdate = binding.button17
         btTrash = binding.button18
+        btExport = binding.button28
+        btAdd = binding.button27
         btSort = binding.button19
         btRoute = binding.button20
         btSelect = binding.button25
@@ -161,7 +176,7 @@ class GpsTraceListActivity : AppCompatActivity() {
                 mSelectList = !mSelectList
                 setDataList()
             } else {
-                klib.setMenuDialog(this, "表示設定メニュー", mDispMenu, iRouteDispOperatin)
+                klib.setMenuDialog(this, "経路表示設定メニュー", mDispMenu, iRouteDispOperatin)
             }
         }
 
@@ -170,6 +185,22 @@ class GpsTraceListActivity : AppCompatActivity() {
          */
         btSort.setOnClickListener {
             klib.setMenuDialog(this, "ソートメニュー", mSortMenu, iSortOperatin)
+        }
+
+        /**
+         * [追加]
+         */
+        btAdd.setOnClickListener {
+            goGpsCsvEdit("")
+        }
+
+        /**
+         * [エクスポート]
+         */
+        btExport.setOnClickListener {
+            if (mSelectList) {
+                klib.folderSelectDialog(this, mGpsTraceFileFolder, iGpsFilesExportOperation)
+            }
         }
 
         /**
@@ -216,6 +247,40 @@ class GpsTraceListActivity : AppCompatActivity() {
         }
     }
 
+    //  GPXエクスポートで選択したフォルダへ変換
+    var iGpsFilesExportOperation = Consumer<String> { s ->
+        if (0 < s.length) {
+            selectExport(s)
+        }
+    }
+
+    /**
+     * 選択された項目のデータを指定フォルダにGPX変換ファイルを出力
+     * outFolder            出力先フォルダ
+     */
+    fun selectExport(outFolder: String) {
+        var checked = lvDataList.checkedItemPositions
+        var count = 0
+        var gpsTraceList = mutableListOf<GpsTraceList.GpsTraceData>()
+        for (i in 0..checked.size()-1){
+            if (checked.valueAt(i)) {
+                val n = getItemPos2DataListPos(checked.keyAt(i))
+                Log.d(TAG, "setOnClickListener: "+i+" "+n+" "+mGpsTraceList.mDataList[n].mFilePath)
+                if (0 <= n) {
+                    gpsTraceList.add(mGpsTraceList.mDataList[n])
+                    count++
+                }
+            }
+        }
+        GpsTraceList.gpxExport(gpsTraceList, outFolder)
+
+        if (0 < count)
+            Toast.makeText(this, count.toString() + " 個のデータをエクスポートします", Toast.LENGTH_LONG).show()
+
+        mSelectList = false
+        setDataList()
+    }
+
     /**
      * 選択項目をファイルからデータを更新する
      */
@@ -233,7 +298,7 @@ class GpsTraceListActivity : AppCompatActivity() {
             }
         }
         if (0 < count)
-            Toast.makeText(this, count.toString() + " 個のデータを削除しました", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, count.toString() + " 個のデータを更新しました", Toast.LENGTH_LONG).show()
         mSelectList = !mSelectList
         setDataList()
     }
@@ -247,7 +312,7 @@ class GpsTraceListActivity : AppCompatActivity() {
         } else if (s.compareTo(mUpdateMenu[1]) == 0) {
             //  データファイル確認
             val n = mGpsTraceList.existDataFileAll()
-            Toast.makeText(this, n.toString() + " 個のデータを削除しました", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "データのない " + n.toString() + " 個の項目を削除しました", Toast.LENGTH_LONG).show()
             setDataList()
         } else if (s.compareTo(mUpdateMenu[2]) == 0) {
             //  初期化
@@ -272,14 +337,13 @@ class GpsTraceListActivity : AppCompatActivity() {
             setDataList()
         } else if (s.compareTo(mRemoveMenu[1]) == 0) {
             //  全ゴミ箱解除
-            if (mSelectList) {
-                mGpsTraceList.setUnTrashData(getSelectDataPos())
-            }
-            mSelectList = !mSelectList
+            mGpsTraceList.setUnTrashData(getSelectDataPos())
             setDataList()
         } else if (s.compareTo(mRemoveMenu[2]) == 0) {
-            //  表示全削除
-            klib.messageDialog(this, "確認", "表示しているすべての項目をデータファイルごと削除します", iAllRemoveOperation)
+            //  ゴミ箱から削除
+            klib.messageDialog(
+                this, "確認", "ゴミ箱の全データをファイルごと削除します",
+                iAllTrashRemoveOperation)
         }
     }
 
@@ -290,16 +354,16 @@ class GpsTraceListActivity : AppCompatActivity() {
             if (mSelectList) {
                 mGpsTraceList.setTrashData(getSelectDataPos())
                 setSpinnerData()
+                mSelectList = false
+                setDataList()
             }
-            mSelectList = !mSelectList
-            setDataList()
         } else if (s.compareTo(mSelectRemoveMenu[1]) == 0) {
             //  選択ゴミ箱解除
             if (mSelectList) {
                 mGpsTraceList.setUnTrashData(getSelectDataPos())
+                mSelectList = false
+                setDataList()
             }
-            mSelectList = !mSelectList
-            setDataList()
         } else if (s.compareTo(mSelectRemoveMenu[2]) == 0) {
             //  選択削除
             if (mSelectList) {
@@ -307,11 +371,10 @@ class GpsTraceListActivity : AppCompatActivity() {
                 if (0 < firstTimeList.size) {
                     val n = mGpsTraceList.findListTitleFirstTime(firstTimeList[0])
                     val path = mGpsTraceList.mDataList[n].mFilePath
-                    klib.messageDialog(this, "確認", path + "など\n選択した項目をデータファイルごと削除します", iRemoveOperation)
+                    klib.messageDialog(
+                        this, "確認", path + "など\n選択した項目をデータファイルごと削除します",
+                        iRemoveOperation)
                 }
-            } else {
-                mSelectList = !mSelectList
-                setDataList()
             }
         }
     }
@@ -320,7 +383,15 @@ class GpsTraceListActivity : AppCompatActivity() {
     var iRemoveOperation = Consumer<String> { s ->
         if (s.compareTo("OK") == 0) {
             mGpsTraceList.removeDataFile(getSelectFirstTimeStr())
-            mSelectList = !mSelectList
+            mSelectList = false
+            setDataList()
+        }
+    }
+
+    //  表示されているすべてのゴミ箱の項目を削除
+    var iAllTrashRemoveOperation = Consumer<String> { s ->
+        if (s.compareTo("OK") == 0) {
+            mGpsTraceList.removeTrashDataFile(getDispFirstTimeStr())
             setDataList()
         }
     }
@@ -348,8 +419,8 @@ class GpsTraceListActivity : AppCompatActivity() {
             //  選択モードに変更
             if (mSelectList) {
                 mGpsTraceList.setVisible(getSelectDataPos())    //  表示のチェック設定
+                mSelectList = false
             }
-            mSelectList = !mSelectList
         } else
             return@Consumer
         setDataList()
@@ -420,7 +491,29 @@ class GpsTraceListActivity : AppCompatActivity() {
                     setSpinnerData()
                     setDataList()
                 }
+            } else if (s.compareTo(mItemClickMenu[5]) == 0) {
+                //  GPXエクスポート
+                gpxExport(position)
             }
+        }
+    }
+
+    /**
+     * 指定のデータをGPXファイルに変換してエクスポートする
+     * pos          データの表示位置
+     */
+    fun gpxExport(pos: Int) {
+        mSelectListPosition = getItemPos2DataListPos(pos)
+        Log.d(TAG,"gpxExport: "+mSelectListPosition+" "+lvDataList.selectedItemPosition)
+        klib.folderSelectDialog(this, mGpsTraceFileFolder, iGpsExportOperation)
+    }
+
+    //  指定のフォルダーにGPXファイルを出力
+    var iGpsExportOperation = Consumer<String> { s ->
+        if (0 <= mSelectListPosition) {
+            var gpsTraceList = mutableListOf<GpsTraceList.GpsTraceData>()
+            gpsTraceList.add(mGpsTraceList.mDataList[mSelectListPosition])
+            GpsTraceList.gpxExport(gpsTraceList, s)
         }
     }
 
@@ -430,7 +523,7 @@ class GpsTraceListActivity : AppCompatActivity() {
      */
     fun goGpsCsvEdit(gpsTraceFilePath: String) {
         Log.d(TAG,"goGpsCsvEdit: "+gpsTraceFilePath)
-        val intent = Intent(this, GpsCsvEditActivity::class.java)
+        val intent = Intent(this, GpxEditActivity::class.java)
         intent.putExtra("GPSTRACELISTPATH", mGpsTraceListPath)
         intent.putExtra("GPSTRACEFILEPATH", gpsTraceFilePath)
         startActivityForResult(intent, REQUESTCODE_CSVEDIT)
@@ -567,16 +660,12 @@ class GpsTraceListActivity : AppCompatActivity() {
             lvDataList.adapter = listTitleAdapter
             //  visibleをcheckに設定
             lvDataList.clearChoices()
-//            for (i in mGpsTraceList.mDataList.indices) {
-//                if (mGpsTraceList.mDataList[i].mVisible) {
-//                    lvDataList.setItemChecked(i, true)
-//                }
-//            }
         } else {
             //  通常リスト
             var listTitleAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_1,
                 mGpsTraceList.getListTitleData(year, category, group))
             lvDataList.adapter = listTitleAdapter
         }
+        title = "GPSトレースデータ(${lvDataList.adapter.count})"
     }
 }

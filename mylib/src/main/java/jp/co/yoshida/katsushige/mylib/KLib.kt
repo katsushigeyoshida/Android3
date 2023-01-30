@@ -280,7 +280,6 @@ class KLib {
      * return       透過処理をした画像データ
      */
     fun makeTransparent(bitmap: Bitmap, c: Int): Bitmap {
-        Log.d(TAG, "transparent Color: " + c.toString(16))
         val width = bitmap.width
         val height = bitmap.height
         val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
@@ -2024,7 +2023,7 @@ class KLib {
         val dirList = YLib.getSdCardFilesDirPathListForLollipop(context)
         if (0 < dirList.size) {
             var externalDir = dirList[0]
-            externalDir = externalDir.substring(0, indexOf(externalDir, "/", 3))
+            externalDir = externalDir.substring(0, indexOf(externalDir, "/", 2))
             return externalDir
         }
         return ""
@@ -2435,7 +2434,11 @@ class KLib {
      * @param   path                    実行関数インターフェース
      */
     fun fileSelectDialog(c: Context, dir: String, filter: String, getDir: Boolean, path: Consumer<String>) {
-        val fileList = getDirFileList(dir, filter, getDir) //  ファイルリストの取得
+        //  ストレージを考慮したディレクトリリスト
+        val folder = replaceStrageFileFolder(c, dir)
+        val fileList = getStrageFileList(c, folder, filter, getDir)
+        Log.d(TAG,"fileSelectDialog: "+folder+"  "+dir)
+//        val fileList = getDirFileList(dir, filter, getDir) //  ファイルリストの取得
         //  ファイルリストのソート
         val sortList = fileList.sortedWith{ t, t2 -> fileCompare(t, t2)}
         //  ファイルリストのソート(ラムダ式)
@@ -2454,12 +2457,12 @@ class KLib {
 //            }
 //        }
         AlertDialog.Builder(c)
-                .setTitle("ファイル選択 [" + getFullPath(dir) + "]")
+                .setTitle("ファイル選択 [" + getFullPath(folder) + "]")
                 .setItems(sortList.toTypedArray()) { dialog, which ->
                     val fname = sortList[which]
                     Toast.makeText(c, which.toString() + " " + fname + " が選択", Toast.LENGTH_LONG).show()
                     if (fname[0] == '[') {         //  ディレクトリの時はファイル選択のダイヤログを開きなおす
-                        val directory: String = getFullPath(dir + "/" + fname.substring(1, fname.length - 1))
+                        val directory: String = getFullPath(folder + "/" + fname.substring(1, fname.length - 1))
                         fileSelectDialog(c, directory, filter, getDir, path)
                     } else {                            //  ファイルを選択したときは与えられた関数を実行
                         path.accept("$dir/$fname")
@@ -2488,27 +2491,68 @@ class KLib {
      * @param   path    選択結果の関数インターフェース
      */
     fun saveFileSelectDialog(c: Context, dir: String, filter: String, getDir: Boolean, path: Consumer<String>) {
-        val fileList = getDirFileList(dir, filter, getDir) //  ファイルリストの取得
+        //  ストレージを考慮したディレクトリリスト
+        val folder = replaceStrageFileFolder(c, dir)
+        val fileList = getStrageFileList(c, folder, filter, getDir)
+        Log.d(TAG,"saveFileSelectDialog: "+folder+"  "+dir)
+//        val fileList = getDirFileList(dir, filter, getDir) //  ファイルリストの取得
         //  ファイルリストのソート
         val sortList = fileList.sortedWith{ t, t2 -> fileCompare(t, t2)}
         AlertDialog.Builder(c)
-                .setTitle("ファイル選択 [" + getFullPath(dir) + "]")
+                .setTitle("ファイル選択 [" + getFullPath(folder) + "]")
                 .setItems(sortList.toTypedArray()) { dialog, which ->
                     val fname = sortList[which]
                     Toast.makeText(c, which.toString() + " " + fname + " が選択", Toast.LENGTH_LONG).show()
                     if (fname[0] == '[') {         //  ディレクトリの時はファイル選択のダイヤログを開きなおす
-                        val directory: String = getFullPath(dir + "/" + fname.substring(1, fname.length - 1))
+                        val directory: String = getFullPath(folder + "/" + fname.substring(1, fname.length - 1))
                         saveFileSelectDialog(c, directory, filter, getDir, path)
                     } else {                            //  ファイルを選択したときは与えられた関数を実行
-                        setInputDialog(c, "ファイル名", "$dir/$fname", path)
+                        setInputDialog(c, "ファイル名", "$folder/$fname", path)
                     }
                 }
                 .setPositiveButton("OK") { dialog, which ->
-                    setInputDialog(c, "ファイル名編集", dir, path)
+                    setInputDialog(c, "ファイル名編集", folder, path)
                 }
                 .setNegativeButton("Cancel") { dialog, which -> }
                 .create()
                 .show()
+    }
+
+    /**
+     * アクセス不可のディレクトリはストレージ名に置換える
+     * c            コンテキスト
+     * dir          ディレクトリ名
+     * return       ストレージ名に置換えたディレクトリ名
+     */
+    fun getStrageFileList(c: Context, folder: String, filter: String, getDir: Boolean): List<String> {
+        var dirList: List<String>
+        if ((folder.count{it.compareTo('/')==0} == 2 && 0 < folder.indexOf("emulated"))
+            || folder.count{it.compareTo('/')==0} == 1) {
+            if (0 < getExternalStrage(c).length)
+                dirList = listOf("[内部ストレージ]", "[SDカード]")
+            else
+                dirList = listOf("[内部ストレージ]")
+        } else {
+            dirList = getDirFileList(folder, filter, getDir)
+        }
+        return dirList
+    }
+
+    /**
+     * ディレクトリにストレージ名が含まれていた時に実際のディレクトリ名に置換える
+     * c            コンテキスト
+     * dir          ストレージ名を含むディレクトリ名
+     * return       実際のディレクトリ名
+     */
+    fun replaceStrageFileFolder(c: Context, dir: String): String {
+        var folder = dir
+        if (folder.count{it.compareTo('/')==0} < 4) {
+            if (0 < folder.indexOf("内部ストレージ"))
+                folder = getInternalStrage()
+            else if (0 < folder.indexOf("SDカード"))
+                folder = getExternalStrage(c)
+        }
+        return folder
     }
 
     /**
@@ -2528,21 +2572,61 @@ class KLib {
      * @param operation 選択したファイルのフルパスで実行する関数インターフェース
      */
     fun folderSelectDialog(c: Context, dir: String, operation: Consumer<String>) {
-        val dirList: List<String> = getDirList(dir)
+        //  ストレージを考慮したディレクトリリスト
+        val folder = replaceStrageFolder(c, dir)
+        val dirList = getStrageDirList(c, folder)
+        Log.d(TAG,"folderSelectDialog: "+dir+"  "+folder)
         //  ファイルソート
         val directries = dirList.sortedWith{ t, t2 -> fileCompare(t, t2)}
         AlertDialog.Builder(c)
-                .setTitle("フォルダ選択 [" + getFullPath(dir) + "]")
+                .setTitle("フォルダ選択 [" + getFullPath(folder) + "]")
                 .setItems(directries.toTypedArray()) { dialog, which ->
                     val fname = directries[which]
                     Toast.makeText(c, which.toString() + " " + fname + " が選択", Toast.LENGTH_LONG).show()
-                    val directory = getFullPath("$dir/$fname")
+                    val directory = getFullPath("$folder/$fname")
                     folderSelectDialog(c, directory, operation)
                 }
                 .setPositiveButton("OK") { dialog, which -> operation.accept(dir) }
                 .setNegativeButton("Cancel") { dialog, which -> }
                 .create()
                 .show()
+    }
+
+    /**
+     * アクセス不可のディレクトリはストレージ名に置換える
+     * c            コンテキスト
+     * folder       ディレクトリ名
+     * return       ストレージ名に置換えたディレクトリリスト
+     */
+    fun getStrageDirList(c: Context, folder: String): List<String> {
+        var dirList: List<String>
+        if ((folder.count{it.compareTo('/')==0} == 2 && 0 < folder.indexOf("emulated"))
+            || folder.count{it.compareTo('/')==0} == 1) {
+            if (0 < getExternalStrage(c).length)
+                dirList = listOf("[内部ストレージ]", "[SDカード]")
+            else
+                dirList = listOf("[内部ストレージ]")
+        } else {
+            dirList = getDirList(folder)
+        }
+        return dirList
+    }
+
+    /**
+     * ディレクトリにストレージ名が含まれていた時に実際のディレクトリ名に置換える
+     * c            コンテキスト
+     * dir          ストレージ名を含むディレクトリ名
+     * return       実際のディレクトリ名
+     */
+    fun replaceStrageFolder(c: Context, dir: String): String {
+        var folder = dir
+        if (folder.count{it.compareTo('/')==0} < 4) {
+            if (0 < folder.indexOf("[内部ストレージ]"))
+                folder = getInternalStrage()
+            else if (0 < folder.indexOf("[SDカード]"))
+                folder = getExternalStrage(c)
+        }
+        return folder
     }
 
     /**
