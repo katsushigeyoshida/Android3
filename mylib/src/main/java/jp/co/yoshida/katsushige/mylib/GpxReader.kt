@@ -1,6 +1,7 @@
 package jp.co.yoshida.katsushige.mylib
 
 import android.location.Location
+import android.util.Log
 import java.io.File
 import java.util.*
 
@@ -22,10 +23,13 @@ class GpxReader(var mDataType: DATATYPE = DATATYPE.gpxData) {
      */
     fun getGpxRead(path: String):Int {
         var buffer = loadData(path)         //  ファイルデータの読込
+        Log.d(TAG, "getGpxRead: "+buffer.length+" "+path)
         if (0 < buffer.length) {
             setListData(buffer.toString())  //  データのリスト化
+            Log.d(TAG, "getGpxRead: ListData "+mListData.size)
             if (0 < mListData.size) {
                 getGpxData()                //  リストデータからGPSデータを取得
+                Log.d(TAG, "getGpxRead: ListGpsData "+mListGpsData.size+" "+mListGpsPointData.size)
                 return mListGpsPointData.size
             }
         }
@@ -160,14 +164,14 @@ class GpxReader(var mDataType: DATATYPE = DATATYPE.gpxData) {
         mListData.clear()
         var buffer = ""
         var itemOn = false
-        for (i in 1..fileData.length - 1) {
+        for (i in fileData.indices) {
             when (fileData[i]) {
                 '<' -> {
                     if (0 < buffer.length) {
                         mListData.add(buffer)
                         buffer = ""
-                        itemOn = true
                     }
+                    itemOn = true
                     buffer += fileData[i]
                 }
                 '>' -> {
@@ -182,6 +186,9 @@ class GpxReader(var mDataType: DATATYPE = DATATYPE.gpxData) {
                             mListData.add(buffer)
                             buffer = ""
                         }
+                    } else {
+                        if (0 < buffer.length && buffer[buffer.lastIndex] != ' ')
+                            buffer += ' '
                     }
                 }
                 ' ' -> {
