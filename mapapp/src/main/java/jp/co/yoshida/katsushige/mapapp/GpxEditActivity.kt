@@ -62,7 +62,7 @@ class GpxEditActivity : AppCompatActivity() {
             val data = intent.data      //  URI
             if (data != null){
                 Log.d(TAG, "onCreate: "+data.toString()+" ["+data.path+"] "+type.toString()+" "+action.toString())
-                mGpxFilePath = getPath(data)
+                mGpxFilePath = klib.getUriPath(this, data)
             }
         }else{
             //  内部からの呼び出し
