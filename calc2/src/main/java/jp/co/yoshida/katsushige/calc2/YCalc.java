@@ -527,13 +527,19 @@ public class YCalc {
         double z = 0;
         String ope = "";
         res.n = i;
-        if (i + 2 < expList.size()) {
-            y = expression(expList.get(i));
-            ope = expList.get(i+1);
-            z = expression(expList.get(i+2));
-            if (ope.compareTo("^")==0) { //  累乗
-                res = express3(i+2, z, expList);
-                x = Math.pow(y, res.x);
+        if (res.n + 2 < expList.size()) {
+            y = expression(expList.get(res.n));
+            while (res.n + 2 < expList.size()) {
+                ope = expList.get(res.n + 1);
+                z = expression(expList.get(res.n + 2));
+                Log.d(TAG, "express3: "+res.n+" "+y+" "+ope+" "+z);
+                if (ope.compareTo("^") == 0) {      //  累乗
+                    x = Math.pow(y, z);
+                    res.n += 2;
+                } else {
+                    break;
+                }
+                y = x;
             }
         }
         res.x = x;
@@ -555,16 +561,17 @@ public class YCalc {
         double z = 0;
         String ope = "";
         res.n = i;
-        if (i + 2 < expList.size()) {
-            y = expression(expList.get(i));
-            while (i + 2 < expList.size()) {
-                ope = expList.get(i+1);
-                z = expression(expList.get(i+2));
+        if (res.n + 2 < expList.size()) {
+            y = expression(expList.get(res.n));
+            while (res.n + 2 < expList.size()) {
+                ope = expList.get(res.n + 1);
+                z = expression(expList.get(res.n + 2));
+                Log.d(TAG, "express2: "+res.n+" "+y+" "+ope+" "+z);
                 if (ope.compareTo("*")==0) {        //  掛け算
-                    res = express2(i+2, z, expList);
+                    res = express3(res.n, z, expList);
                     x = y * res.x;
                 } else if (ope.compareTo("/")==0) { // 割り算
-                    res = express2(i+2, z, expList);
+                    res = express3(res.n, z, expList);
                     if (res.x == 0d) {
                         mError = true;
                         mErrorMsg = "０割り";
@@ -572,7 +579,7 @@ public class YCalc {
                     }
                     x = y / res.x;
                 } else if (ope.compareTo("%")==0) { //剰余
-                    res = express2(i+2, z, expList);
+                    res = express3(res.n, z, expList);
                     if (res.x == 0d) {
                         mError = true;
                         mErrorMsg = "０割り";
@@ -580,13 +587,12 @@ public class YCalc {
                     }
                     x = y % res.x;
                 } else if (ope.compareTo("^")==0) { //  累乗
-                    res = express3(i+2, z, expList);
-                    x = Math.pow(y, res.x);
+                    x = Math.pow(y, z);
                 } else {
                     break;
                 }
                 y = x;
-                i = res.n;
+                res.n += 2;
             }
         }
         res.x = x;
@@ -604,6 +610,7 @@ public class YCalc {
         mError = false;
         double result = 0;
         str = str.replaceAll(" ","");   //  空白除去
+        Log.d(TAG,"expression: ["+str+"]");
         try {
             List<String> expList;
             //  文字列を数値と演算子、括弧内の分解リストを作成
@@ -630,6 +637,7 @@ public class YCalc {
 //                Log.d(TAG,"expression:"+i+" "+expList.get(i)+" "+success+" "+x+" "+ope);
                 //  数値の場合、前の演算子で計算する
                 if (success) {
+                    Log.d(TAG,"expression: "+i+" "+result+" "+ope+" "+x);
                     if (ope.compareTo("+") == 0) {          //  加算
                         res = express2(i, x, expList);      //  剰余が先にあれば計算しておく
                         i = res.n;
@@ -661,9 +669,7 @@ public class YCalc {
                         }
                         result %= res.x;
                     } else if (ope.compareTo("^") == 0) {   //  累乗
-                        res = express3(i, x, expList);      //  べき乗が先にあれば計算しておく
-                        i = res.n;
-                        result = Math.pow(result, res.x);
+                        result = Math.pow(result, x);
                     } else {
                         if (0 <i) {
                             mError = true;
