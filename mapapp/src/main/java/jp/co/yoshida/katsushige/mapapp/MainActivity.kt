@@ -60,6 +60,9 @@ class MainActivity : AppCompatActivity() {
     val REQUESTCODE_GPXEDIT = 3
     val REQUESTCODE_GPXFILELIST = 4
     val REQUESTCODE_GPSTRACELIST = 5
+    val REQUESTCODE_MARKLIST = 6
+    val REQUESTCODE_MARKEDIT = 7
+    val REQUESTCODE_PHOTOGALLERY = 8
 
     //  オプションサブメニュー(画面登録)
     val mMapDispMenu = listOf(
@@ -97,7 +100,7 @@ class MainActivity : AppCompatActivity() {
     var mAreaData = AreaData()                      //  画面登録クラス
     var mMarkList = MarkList()                      //  マークリストクラス
     var mMeasure = Measure()                        //  距離測定クラス
-    var mGpxDataList = GpsDataList()                //  GPXデータリスト
+//    var mGpxDataList = GpsDataList()                //  GPXデータリスト
     var mGpsTraceList = GpsTraceList()              //  GPSトレースリスト
     var mGpsTrace = GpsTrace()                      //  GpsのLogをとる
 
@@ -181,7 +184,7 @@ class MainActivity : AppCompatActivity() {
         mMapView = MapView(this, mMapData)
         mMapView.mMarkList = mMarkList          //  マークリストデータの設定
         mMapView.mMeasure = mMeasure            //  距離測定データの設定
-        mMapView.mGpsDataList = mGpxDataList    //  GPSデータの表示設定
+//        mMapView.mGpsDataList = mGpxDataList    //  GPSデータの表示設定
         mMapView.mGpsTraceList = mGpsTraceList  //  GPSトレースの表示設定
         mMapData.mDataFolder = mDataFolder      //  データファイルフォルダ設定
         mMapData.loadParameter()                //  パラメータの読み込み
@@ -245,9 +248,9 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         Log.d(TAG, "onResume: ")
         //  GPXデータリストの読込
-        mGpxDataList.mSaveFilePath = mDataFolder + "/" + mGpxDataListPath
-        klib.setStrPreferences(mGpxDataList.mSaveFilePath, "GpxDataListPath", this)
-        mGpxDataList.loadDataFile(this)
+//        mGpxDataList.mSaveFilePath = mDataFolder + "/" + mGpxDataListPath
+//        klib.setStrPreferences(mGpxDataList.mSaveFilePath, "GpxDataListPath", this)
+//        mGpxDataList.loadDataFile(this)
         //  GPSトレースデータ
         mGpsTraceList.mGpsTraceListPath = mGpsTraceListPath
         mGpsTraceList.mGpsTraceFileFolder = mGpsTraceFileFolder
@@ -267,7 +270,7 @@ class MainActivity : AppCompatActivity() {
         mMapData.saveImageFileSet(mImageFileSetPath)    //  ダウンロードファイルリストの保存
         mAreaData.saveAreaDataList()                    //  登録画面リストの保存
         mMarkList.saveMarkFile(this)            //  マークリストの保存
-        mGpxDataList.saveDataFile(this)             //  GPSデータリストの保存
+//        mGpxDataList.saveDataFile(this)             //  GPSデータリストの保存
         mGpsTraceList.saveListFile()                    //  GPSトレースリストの保存
 
         //  GPX変換が終わっていなければ処理待ちをおこなう
@@ -429,6 +432,23 @@ class MainActivity : AppCompatActivity() {
                     mapDisp(mMapDataDownLoadMode)     //  再表示
                 }
             }
+            REQUESTCODE_PHOTOGALLERY -> {
+                //  写真の座標位置に移動
+                try {
+                    data?.data?.also { uri ->
+                        val coord = klib.getExifCoordinate(klib.getUriPath(this, uri))
+                        if (!coord.isEmpty()) {
+                            mMapData.setLocation(mMapData.coordinates2BaseMap(coord))
+                            mapDisp(mMapDataDownLoadMode)     //  再表示
+                        } else {
+                            Toast.makeText(this, "座標が登録されていません", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                } catch (e: Exception) {
+                    Toast.makeText(this, "エラーが発生しました "+e.message, Toast.LENGTH_LONG).show()
+                }
+
+            }
         }
     }
 
@@ -446,6 +466,8 @@ class MainActivity : AppCompatActivity() {
         item6.setIcon(android.R.drawable.ic_menu_set_as)
         val item7 = menu.add(Menu.NONE, MENU07, Menu.NONE, "Wikiリスト")
         item7.setIcon(android.R.drawable.ic_menu_set_as)
+        val item5 = menu.add(Menu.NONE, MENU05, Menu.NONE, "写真の位置")
+        item5.setIcon(android.R.drawable.ic_menu_set_as)
         val item8 = menu.add(Menu.NONE, MENU08, Menu.NONE, "地図データ一括取込")
         item8.setIcon(android.R.drawable.ic_menu_set_as)
         val item9 = menu.add(Menu.NONE, MENU09, Menu.NONE, "オンラインの切替")
@@ -491,10 +513,14 @@ class MainActivity : AppCompatActivity() {
                 setMapInfoData()
             }
             MENU04 -> {     //  GpsTraceList
-                gpGpsTraceList()
+                goGpsTraceList()
+            }
+            MENU05 -> {
+                goPhotoGallery()
             }
             MENU06 -> {     //  マーク操作サブメニュー
                 markOperationMenu()
+//                goMarkList()
             }
             MENU07 -> {     //  Wikiリスト
                 goWikiList()
@@ -1593,14 +1619,30 @@ class MainActivity : AppCompatActivity() {
         startActivityForResult(intent, REQUESTCODE_WIKI)
     }
 
-
     /**
      * GPSトレースリスト
      */
-    fun gpGpsTraceList() {
+    fun goGpsTraceList() {
         val intent = Intent(this, GpsTraceListActivity::class.java)
         intent.putExtra("GPSTRACEFOLDER", mGpsTraceFileFolder)
         intent.putExtra("GPSTRACELISTPATH", mGpsTraceListPath)
         startActivityForResult(intent, REQUESTCODE_GPSTRACELIST)
+    }
+
+    fun goMarkList() {
+        val intent = Intent(this, MarkListActivity::class.java)
+        intent.putExtra("MARKLISTPATH", mDataFolder + "/" + mMarkListPath)
+        val center = klib.baseMap2Coordinates(mMapData.getCenter())
+        intent.putExtra("MAPCENTER_X", center.x.toString())
+        intent.putExtra("MAPCENTER_Y", center.y.toString())
+        startActivityForResult(intent, REQUESTCODE_MARKLIST)
+    }
+
+    fun goPhotoGallery() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "image/*"
+        }
+        startActivityForResult(intent, REQUESTCODE_PHOTOGALLERY)
     }
 }

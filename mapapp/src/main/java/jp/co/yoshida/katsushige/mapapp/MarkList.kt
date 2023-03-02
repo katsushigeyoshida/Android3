@@ -26,6 +26,9 @@ class MarkList {
     var mMarkDisp = true                        //  マークの表示有無
     var mGroupDispList = mutableMapOf<String, Boolean>()
     var mMarkScale = 2.0f                       //  マークシンボルのスケール
+    //  特殊グループ名
+    val mAllListName = "すべて"
+    val mTrashGroup = "ゴミ箱"
 
     enum class SORTTYPE {
         Non, Normal, Reverse, Distance
@@ -310,6 +313,7 @@ class MarkList {
         var file = File(path)
         if (file.exists()) {
             var dataList = klib.loadCsvData(path, MarkData.mDataFormat)
+            Log.d(TAG,"loadMarkFile: "+dataList.size+" "+path)
             if (!add)
                 mMarkList.clear()
             for (data in dataList) {

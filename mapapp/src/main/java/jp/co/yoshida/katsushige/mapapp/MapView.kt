@@ -25,7 +25,7 @@ class MapView(context: Context,var mMapData: MapData): View(context) {
     var mMeasure = Measure()                //  距離測定実行中のデータ
     var mGpsTrace = GpsTrace()              //  GPSトレース実行中のデータ
     var mGpsTraceList = GpsTraceList()      //  GPSトレースデータ
-    var mGpsDataList = GpsDataList()        //  GPSデータ
+//    var mGpsDataList = GpsDataList()        //  GPSデータ
     var mElevator = 0.0                     //  標高値(Mainから設定)
     var mLastSpeedAveSize = 16              //  GPSトレース速度の移動平均データ数(表示用)
     var mCenterColor = ""                   //  中心の色(凡例で使用)
