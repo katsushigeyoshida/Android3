@@ -3,11 +3,12 @@ package jp.co.yoshida.katsushige.mapapp
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
-import android.util.Log
 import android.util.Size
 import android.view.View
 import jp.co.yoshida.katsushige.mylib.*
 import java.util.*
+import kotlin.math.max
+import kotlin.math.min
 
 class GpsGraphView(context: Context, var mGpsData: GpxReader): View(context) {
     val TAG = "GpsGraphView"
@@ -25,9 +26,11 @@ class GpsGraphView(context: Context, var mGpsData: GpxReader): View(context) {
     var mTopMargin = 230.0          //  下部(倒立時)マージン(スクリーンサイズ)
     var mRightMargine = 40.0        //  右マージン(スクリーンサイズ)
     var mBottomMargin = 20.0        //  上部(倒立時)マージン(スクリーンサイズ)
-    val mYTitle = listOf("経過時間", "距離(km)", "標高(m)", "標高(m)", "速度(km/h)")      // 　縦軸タイトル
+    var mStartPos = 0               //  表示開始データ位置
+    var mEndPos = 0                 //  表示終了データ位置
+    val mYTitle = listOf("経過時間", "距離(km)", "標高(m)", "標高差(m)", "速度(km/h)")      // 　縦軸タイトル
     val mXTitle = listOf("距離(km)", "経過時間", "日時")                                //  横軸タイトル
-    val mGraphYType = listOf<String>("経過時間", "距離(km)", "標高(m)", "標高(m)", "速度(km/h)")  //  縦軸のデータ種別
+    val mGraphYType = listOf<String>("経過時間", "距離(km)", "標高(m)", "標高差(m)", "速度(km/h)")  //  縦軸のデータ種別
     val mGraphXType = listOf<String>("距離(km)", "経過時間", "日時")                            //  横軸のデータ種別
     var mAverageCount = listOf<String>("なし", "2", "3", "4", "5", "7", "10", "15", "20",
                 "25", "30", "40", "50", "100", "150", "200", "300", "400", "500", "1000")
@@ -46,7 +49,6 @@ class GpsGraphView(context: Context, var mGpsData: GpxReader): View(context) {
      */
     override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
         super.onWindowFocusChanged(hasWindowFocus)
-        Log.d(TAG,"onWindowFocusChanged: "+width+" "+height)
         //  Android12以降、初期表示以降となるので初期時に別に設定が必要
         setInitGraphScreen(width, height)
     }
@@ -71,6 +73,10 @@ class GpsGraphView(context: Context, var mGpsData: GpxReader): View(context) {
         //  文字サイズと文字太さを初期設定
         kdraw.mTextSize = 30f
         kdraw.mTextStrokeWidth = 2f
+        //  表示データ位置
+        mStartPos = 0
+        mEndPos = mGpsData.mListGpsData.lastIndex
+        mStepYSize = klib.graphStepSize(kdraw.mWorld.height(), 5.0)
     }
 
     /**
@@ -100,10 +106,10 @@ class GpsGraphView(context: Context, var mGpsData: GpxReader): View(context) {
         setDataType()
         //  データの領域をワールド座標に設定
         kdraw.mWorld = getGraphArea()
-        //  目盛のステップサイズを設定
-        setStepSize()
         //  ステップサイズや上部下部マージンを補正してワールド座標を再設定
         setWorldArea()
+        //  目盛のステップサイズを設定
+        setStepSize()
         //  グラフ枠の表示
         kdraw.backColor(Color.WHITE)
         kdraw.mColor = "Black"
@@ -117,9 +123,9 @@ class GpsGraphView(context: Context, var mGpsData: GpxReader): View(context) {
      */
     fun drawData() {
         var averageCount = mAverageCountTitle.toIntOrNull()?:0
-        var sx = if (mXType == XTYPE.DateTime) mGpsData.mGpsInfoData.mFirstTime.time.toDouble() else 0.0
-        var sy = getMovingAverage(0, averageCount, mYType)
-        for (i in 1..mGpsData.mListGpsData.size - 1) {
+        var sx = getXData(mStartPos, mXType, true)
+        var sy = getMovingAverage(mStartPos, averageCount, mYType)
+        for (i in max(mStartPos,1)..mEndPos) {
             var ex = getXData(i, mXType) + sx
             var ey = 0.0
             if (mYType == YTYPE.Distance || mYType == YTYPE.LapTime) {
@@ -130,41 +136,6 @@ class GpsGraphView(context: Context, var mGpsData: GpxReader): View(context) {
             kdraw.drawWLine(PointD(sx, sy), PointD(ex, ey))
             sx = ex
             sy = ey
-        }
-    }
-
-    /**
-     * グラフ補助線の間隔を設定
-     */
-    fun setStepSize() {
-        //  縦軸目盛り線の間隔
-        mStepYSize = klib.graphStepSize(kdraw.mWorld.height(), 5.0)
-        //  横軸軸目盛り線の間隔
-        when (mXType) {
-            XTYPE.Distance -> {
-                //  横軸目盛り距離
-                mStepXSize = klib.graphStepSize(kdraw.mWorld.width(), 8.0)
-            }
-            XTYPE.LapTime->{
-                //  横軸目盛り経過時間(s)
-                val minit: Double = kdraw.mWorld.width() / 1000.0 / 60.0 //  m秒を分に換算
-                if (60.0 * 24.0 * 10.0 < minit) {                       //  10日以上は日単位で計算
-                    mStepXSize = klib.graphStepSize(minit / 60.0 / 24.0, 8.0, 24.0) * 24.0 * 60.0
-                } else {
-                    mStepXSize = klib.graphStepSize(minit, 8.0, 60.0)
-                }
-                mStepXSize *= 60.0 * 1000.0
-            }
-            XTYPE.DateTime ->{
-                //  横軸目盛り経過時間(s)
-                val minit: Double = kdraw.mWorld.width() / 1000.0 / 60.0 //  m秒を分に換算
-                if (60.0 * 24.0 * 10.0 < minit) {                       //  10日以上は日単位で計算
-                    mStepXSize = klib.graphStepSize(minit / 60.0 / 24.0, 8.0, 24.0) * 24.0 * 60.0
-                } else {
-                    mStepXSize = klib.graphStepSize(minit, 8.0, 60.0)
-                }
-                mStepXSize *= 60.0 * 1000.0
-            }
         }
     }
 
@@ -228,29 +199,6 @@ class GpsGraphView(context: Context, var mGpsData: GpxReader): View(context) {
                 90.0, KDraw.HALIGNMENT.Center, KDraw.VALIGNMENT.Bottom)
     }
 
-    /**
-     * ワールド座標領域をステップサイズや上下マージンを加えて設定
-     */
-    fun setWorldArea() {
-        kdraw.mWorld.bottom = klib.graphHeightSize(kdraw.mWorld.bottom, mStepYSize)
-        kdraw.mWorld.top = if (mYType == YTYPE.ElevatorDiff) mGpsData.mGpsInfoData.mMinElevator else 0.0
-        kdraw.mWorld.top = if (kdraw.mWorld.top != 0.0) ((kdraw.mWorld.top / mStepYSize).toInt()) * mStepYSize else 0.0
-        kdraw.mWorld.left = if (mXType == XTYPE.DateTime) mGpsData.mListGpsData[0].mDate.time.toDouble() else 0.0
-        kdraw.mWorld.right = when (mXType) {
-            XTYPE.Distance -> {
-                mGpsData.mGpsInfoData.mDistance
-            }
-            XTYPE.LapTime -> {
-                (mGpsData.mGpsInfoData.mLastTime.time - mGpsData.mGpsInfoData.mFirstTime.time).toDouble()
-            }
-            XTYPE.DateTime -> {
-                mGpsData.mGpsInfoData.mLastTime.time.toDouble()
-            }
-            else -> {
-                mGpsData.mGpsInfoData.mDistance
-            }
-        }
-    }
 
     /**
      * 横軸目盛の表示
@@ -303,45 +251,129 @@ class GpsGraphView(context: Context, var mGpsData: GpxReader): View(context) {
     }
 
     /**
+     * グラフ補助線の間隔を設定
+     */
+    fun setStepSize() {
+        //  縦軸目盛り線の間隔
+        mStepYSize = klib.graphStepSize(kdraw.mWorld.height(), 5.0)
+        //  横軸軸目盛り線の間隔
+        when (mXType) {
+            XTYPE.Distance -> {
+                //  横軸目盛り距離
+                mStepXSize = klib.graphStepSize(kdraw.mWorld.width(), 8.0)
+            }
+            XTYPE.LapTime->{
+                //  横軸目盛り経過時間(s)
+                val minit: Double = kdraw.mWorld.width() / 1000.0 / 60.0 //  m秒を分に換算
+                if (60.0 * 24.0 * 10.0 < minit) {                       //  10日以上は日単位で計算
+                    mStepXSize = klib.graphStepSize(minit / 60.0 / 24.0, 8.0, 24.0) * 24.0 * 60.0
+                } else {
+                    mStepXSize = klib.graphStepSize(minit, 8.0, 60.0)
+                }
+                mStepXSize *= 60.0 * 1000.0
+            }
+            XTYPE.DateTime ->{
+                //  横軸目盛り経過時間(s)
+                val minit: Double = kdraw.mWorld.width() / 1000.0 / 60.0 //  m秒を分に換算
+                if (60.0 * 24.0 * 10.0 < minit) {                       //  10日以上は日単位で計算
+                    mStepXSize = klib.graphStepSize(minit / 60.0 / 24.0, 8.0, 24.0) * 24.0 * 60.0
+                } else {
+                    mStepXSize = klib.graphStepSize(minit, 8.0, 60.0)
+                }
+                mStepXSize *= 60.0 * 1000.0
+            }
+        }
+    }
+
+    /**
+     * ワールド座標領域をステップサイズや上下マージンを加えて設定
+     */
+    fun setWorldArea() {
+        kdraw.mWorld.bottom = klib.graphHeightSize(kdraw.mWorld.bottom, mStepYSize)
+        kdraw.mWorld.top = if (mYType == YTYPE.ElevatorDiff) mGpsData.mGpsInfoData.mMinElevator
+        else 0.0
+        kdraw.mWorld.left = getXData(mStartPos, mXType, true)
+        kdraw.mWorld.right = getXData(mEndPos, mXType, true)
+    }
+    /**
      * データ領域の取得
      */
     fun getGraphArea(): RectD {
         var rect = RectD()
-        rect.top = if (mYType == YTYPE.ElevatorDiff) mGpsData.mGpsInfoData.mMinElevator else 0.0
-        rect.bottom = getMaxData(mYType)
-        when (mXType) {
-            XTYPE.Distance -> {
-                rect.left = 0.0
-                rect.right = mGpsData.mGpsInfoData.mDistance
-            }
-            XTYPE.LapTime -> {
-                rect.left = 0.0
-                rect.right = (mGpsData.mGpsInfoData.mLastTime.time -
-                        mGpsData.mGpsInfoData.mFirstTime.time).toDouble()
-            }
-            XTYPE.DateTime -> {
-                rect.left = mGpsData.mGpsInfoData.mFirstTime.time.toDouble()
-                rect.right = mGpsData.mGpsInfoData.mLastTime.time.toDouble()
-            }
-        }
+        rect.top = if (mYType == YTYPE.ElevatorDiff) getMinYData(mYType) else 0.0
+        rect.bottom = getMaxYData(mYType)
+        rect.left = getXData(mStartPos, mXType, true,)
+        rect.right = getXData(mEndPos, mXType, true)
         return rect
     }
 
     /**
-     * データの最大値を取得
-     * type     データの種別
+     * グラフを左右方向に拡大
+     * zoom         拡大率
      */
-    fun getMaxData(type: YTYPE): Double {
-        var maxData = 0.0
+    fun zoomDisp(zoom: Double = 2.0) {
+        var dispWidth = mEndPos - mStartPos
+        var dispCenter = (mStartPos + mEndPos) / 2
+        mStartPos = (dispCenter - dispWidth / (zoom * 2.0)).toInt()
+        mEndPos = (dispCenter + dispWidth / (zoom * 2.0)).toInt()
+        mStartPos = max(0, mStartPos)
+        mEndPos = min(mGpsData.mListGpsData.lastIndex, mEndPos)
+    }
+
+    /**
+     * グラフを左右に移動させる
+     * move         -x:左 x:右
+     */
+    fun moveDisp(move: Double = 0.5) {
+        var dispWidth = mEndPos - mStartPos
+        var moveWidth = (dispWidth * move).toInt()
+        if (0 < moveWidth) {
+            if (mGpsData.mListGpsData.lastIndex <= mEndPos + moveWidth)
+                moveWidth = mGpsData.mListGpsData.lastIndex - mEndPos
+        } else {
+            if (mStartPos + moveWidth < 0)
+                moveWidth = -mStartPos
+        }
+        mStartPos += moveWidth
+        mEndPos += moveWidth
+        mStartPos = max(0, mStartPos)
+        mEndPos = min(mGpsData.mListGpsData.lastIndex, mEndPos)
+    }
+
+    /**
+     * Yデータの最大値を取得(mStarPosとmEndPosの間で)
+     * type         データの種別
+     * retrurn      最大値
+     */
+    fun getMaxYData(type: YTYPE): Double {
+        var maxData = Double.MIN_VALUE
         var averageCount = mAverageCountTitle.toIntOrNull()?:0
-        for (i in 1..mGpsData.mListGpsData.size - 1) {
-            if (mYType == YTYPE.Distance || mYType == YTYPE.LapTime) {
-                maxData += getYData(i, type)
-            } else {
-                maxData = Math.max(maxData, getMovingAverage(i, averageCount, type))
+        if (mYType == YTYPE.Distance || mYType == YTYPE.LapTime) {
+            maxData = max(maxData, getYData(mEndPos, type, true))
+        } else {
+            for (i in max(mStartPos, 1)..mEndPos) {
+                    maxData = max(maxData, getMovingAverage(i, averageCount, type))
             }
         }
         return maxData
+    }
+
+    /**
+     * Yデータの最小値を取得(mStarPosとmEndPosの間で)
+     * type         データの種別
+     * return       最小値
+     */
+    fun getMinYData(type: YTYPE): Double {
+        var minData = Double.MAX_VALUE
+        var averageCount = mAverageCountTitle.toIntOrNull()?:0
+        if (mYType == YTYPE.Distance || mYType == YTYPE.LapTime) {
+            minData = min(minData, getYData(mStartPos, type, true))
+        } else {
+            for (i in max(mStartPos, 1)..mEndPos) {
+                minData = min(minData, getMovingAverage(i, averageCount, type))
+            }
+        }
+        return minData
     }
 
     /**
@@ -379,21 +411,31 @@ class GpsGraphView(context: Context, var mGpsData: GpxReader): View(context) {
     }
 
     /**
-     * 横軸データの取得
-     * pos      データ位置
-     * dataType データの種別
-     * return   データの値
+     * 横軸データの取得(一つ前との増分値/累積値) DateTimeの時は累積値の代わりにその日時
+     * pos          データ位置
+     * dataType     データの種別(Distance/LapTime/DateTime)
+     * sum          増分と累積値の切替
+     * return       データの値(km/ms/ms)
      */
-    fun getXData(pos: Int, dataType: XTYPE): Double {
+    fun getXData(pos: Int, dataType: XTYPE, sum: Boolean = false): Double {
         return when (dataType) {
             XTYPE.Distance -> {
-                mGpsData.mListGpsData[pos].mDistance
+                if (sum)
+                    mGpsData.mListGpsData.take(pos).sumOf { it.mDistance }
+                else
+                    mGpsData.mListGpsData[pos].mDistance
             }
             XTYPE.LapTime -> {
-                mGpsData.mListGpsData[pos].mLap.toDouble()
+                if (sum)
+                    mGpsData.mListGpsData.take(pos).sumOf { it.mLap.toDouble() }
+                else
+                    mGpsData.mListGpsData[pos].mLap.toDouble()
             }
             XTYPE.DateTime -> {
-                mGpsData.mListGpsData[pos].mLap.toDouble()
+                if (sum)
+                    mGpsData.mListGpsData[pos].mDate.time.toDouble()
+                else
+                    mGpsData.mListGpsData[pos].mLap.toDouble()
             }
         }
     }
@@ -404,13 +446,19 @@ class GpsGraphView(context: Context, var mGpsData: GpxReader): View(context) {
      * dataType データの種別
      * return   データの値
      */
-    fun getYData(pos: Int, dataType: YTYPE): Double {
+    fun getYData(pos: Int, dataType: YTYPE, sum: Boolean = false): Double {
         return when (dataType) {
             YTYPE.Distance -> {
-                mGpsData.mListGpsData[pos].mDistance
+                if (sum)
+                    mGpsData.mListGpsData.take(pos).sumOf { it.mDistance }
+                else
+                    mGpsData.mListGpsData[pos].mDistance
             }
             YTYPE.LapTime -> {
-                mGpsData.mListGpsData[pos].mLap.toDouble()
+                if (sum)
+                    mGpsData.mListGpsData.take(pos).sumOf { it.mLap.toDouble() }
+                else
+                    mGpsData.mListGpsData[pos].mLap.toDouble()
             }
             YTYPE.Elevator -> {
                 mGpsData.mListGpsData[pos].mElevator
@@ -434,7 +482,7 @@ class GpsGraphView(context: Context, var mGpsData: GpxReader): View(context) {
         } else if (mYTypeTitle.compareTo(mGraphYType[1]) == 0) {
             mYType = YTYPE.Distance
         } else if (mYTypeTitle.compareTo(mGraphYType[2]) == 0) {
-            mYType = YTYPE.ElevatorDiff
+            mYType = YTYPE.Elevator
         } else if (mYTypeTitle.compareTo(mGraphYType[3]) == 0) {
             mYType = YTYPE.ElevatorDiff
         } else if (mYTypeTitle.compareTo(mGraphYType[4]) == 0) {
