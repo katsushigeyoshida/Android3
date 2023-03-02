@@ -9,6 +9,7 @@ import android.content.pm.PackageManager
 import android.graphics.*
 import android.location.Location
 import android.media.AudioManager
+import android.media.ExifInterface
 import android.media.ToneGenerator
 import android.net.Uri
 import android.os.Environment
@@ -48,6 +49,9 @@ import kotlin.math.*
  *  string2Coordinate2(coordinate: String): PointD  日本語の座標を座標値に変換
  *  matchCoordinate(coordinate: String): String     座標を含む文字列の検索
  *  string2Coordinate(coordinate: String): PointD   日本語の座標を座標値に変換
+ *  getExifCoordinate(path: String): PointD
+ *  dmsStr2Double(dms: String): Double
+ *
  *  ---  数値処理  ---
  *  size2String(size: Double, unit: Double = 1000.0):String 値をK,M,Gなどのポストフィックスをつけて文字列に変換
  *  disPoint2(ps: PointF, pe: PointF): Float    2点間の距離
@@ -102,6 +106,7 @@ import kotlin.math.*
  *  date2String(date: Date, format: String): String Dateをフォーマットにしたがって文字列に変換
  *  lap2String(lapTime: Long): String   経過時間を文字列に変換
  *  roundDateTimeMin(et: LocalDateTime, min: Long): LocalDateTime   日時を分単位で丸める
+ *
  *  ---  ファイル処理  ---
  *  saveCsvData(path: String, format: List<String>, data: List<List<String>>)   CSV形式でListデータを保存
  *  saveCsvData(path: String, data: List<List<String>>) ListデータをCSV形式で保存
@@ -124,6 +129,8 @@ import kotlin.math.*
  *  renameFile(srFile: String, dtFile: String): Boolean ファイル名変更
  *  getFullPath(path: String): String   ファイルのフルパスを取得
  *  getFolder(path: String):String  ファイルの親ディレクトリを取得
+ *  getInternalStrage(): String     内部ストレージ
+ *  getExternalStrage(context: Context?): String    外部ストレージ
  *  getName(path: String): String   ファイル名の抽出
  *  getFileNameWithoutExtension(path: String):String    ファイル名の取得拡張子なし
  *  getNameExt(path: String): String    ファイル名の拡張子を取得
@@ -134,6 +141,8 @@ import kotlin.math.*
  *  getDirList(path: String): List<String>  ディレクトリ検索(再帰取得なし)
  *  getDirFileList(path: String, filter: String, getDir: Boolean): List<String> ディレクトリとファイル検索(再帰取得なし)
  *  getMimeType(path: String): String   ファイルのMIME(Multipurpose Internet Mail Extension)タイプを求める
+ *  getUriPath(c: Context, uri: Uri): String    Uriからパスを生成
+ *
  *  ---  HTMLファイル  ---
  *  cnvHtmlSpecialCode(html: String): String    TMLの特殊コードを変換
  *
@@ -188,6 +197,8 @@ import kotlin.math.*
 
 class KLib {
     val TAG = "KLib"
+
+    val kcalc = KCalc()
 
     // --- グラフィック関連  ---
 
@@ -480,6 +491,36 @@ class KLib {
         }
 
         return PointD(longi, lati)
+    }
+
+    /**
+     * 画像データのEXIF情報から座標データを抽出
+     * path         画像ファイルのパス
+     * return       座標
+     */
+    fun getExifCoordinate(path: String): PointD {
+        val exif = ExifInterface(path)
+        var coord = PointD()
+        coord.x = dmsStr2Double(exif.getAttribute(ExifInterface.TAG_GPS_LONGITUDE).toString())
+        coord.y = dmsStr2Double(exif.getAttribute(ExifInterface.TAG_GPS_LATITUDE).toString())
+        return coord
+    }
+
+    /**
+     * DMS形式を度に変換
+     * []35/1,37308/1000,0/1]  →  141.216667
+     * dms      DMS文字列
+     * retunn   度
+     */
+    fun dmsStr2Double(dms: String): Double {
+        val dmsArray = dms.split(',')
+        if (2 < dmsArray.size) {
+            var value = kcalc.expression(dmsArray[0])
+            value += kcalc.expression(dmsArray[1]) / 60
+            value += kcalc.expression(dmsArray[2]) / 3600
+            return value
+        }
+        return 0.0
     }
 
     //  ---  数値処理  ---
@@ -2202,6 +2243,23 @@ class KLib {
         return mimetype
     }
 
+    /**
+     * URIからパスを取得する
+     * uri      ファイルのURI
+     * return   フルパス
+     */
+    fun getUriPath(c: Context, uri: Uri): String {
+        val uriPath = uri.path.toString()
+        var path = getInternalStrage()
+        var n = uriPath.indexOf(":") + 1
+        if (n < 0)
+            n = indexOf(uriPath, "/",1) + 1
+        path += "/" + uriPath.substring(n)
+        if (!existsFile(path))
+            path = getExternalStrage(c) + "/" + uriPath.substring(n)
+        return path
+    }
+
     //  ---  HTMLファイル  ---
 
     /**
@@ -3081,10 +3139,10 @@ class KLib {
      * @param context コンテキスト
      * @return 取得したデータ
      */
-    fun getStrPreferences(key: String?, context: Context?): String? {
+    fun getStrPreferences(key: String?, context: Context?, defaultValue: String = "###"): String? {
         val prefs: SharedPreferences
         prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        return prefs.getString(key, "###")
+        return prefs.getString(key, defaultValue)
     }
 
     /**
