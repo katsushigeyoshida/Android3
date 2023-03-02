@@ -2,7 +2,6 @@ package jp.co.yoshida.katsushige.mapapp
 
 import android.content.Intent
 import android.os.Bundle
-import android.util.Log
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
@@ -92,7 +91,6 @@ class GpsTraceListActivity : AppCompatActivity() {
         when (requestCode) {
             REQUESTCODE_CSVEDIT -> {
                 if (resultCode == RESULT_OK) {
-                    Log.d(TAG,"onActivityResult: REQUESTCODE_CSVEDIT: ")
                     mGpsTraceList.loadListFile()
                     setSpinnerData()
                     setDataList()
@@ -163,12 +161,10 @@ class GpsTraceListActivity : AppCompatActivity() {
         btRoute.setOnClickListener {
             if (mSelectList) {
                 var visibleChecked = lvDataList.checkedItemPositions
-                Log.d(TAG, "setOnClickListener: "+visibleChecked)
                 mGpsTraceList.clearVisible()
                 for (i in 0..visibleChecked.size()-1){
                     if (visibleChecked.valueAt(i)) {
                         val n = getItemPos2DataListPos(visibleChecked.keyAt(i))
-                        Log.d(TAG, "setOnClickListener: "+i+" "+n)
                         if (0 <= n)
                             mGpsTraceList.mDataList[n].mVisible = true
                     }
@@ -265,7 +261,6 @@ class GpsTraceListActivity : AppCompatActivity() {
         for (i in 0..checked.size()-1){
             if (checked.valueAt(i)) {
                 val n = getItemPos2DataListPos(checked.keyAt(i))
-                Log.d(TAG, "setOnClickListener: "+i+" "+n+" "+mGpsTraceList.mDataList[n].mFilePath)
                 if (0 <= n) {
                     gpsTraceList.add(mGpsTraceList.mDataList[n])
                     count++
@@ -290,7 +285,6 @@ class GpsTraceListActivity : AppCompatActivity() {
         for (i in 0..visibleChecked.size()-1){
             if (visibleChecked.valueAt(i)) {
                 val n = getItemPos2DataListPos(visibleChecked.keyAt(i))
-                Log.d(TAG, "setOnClickListener: "+i+" "+n)
                 if (0 <= n) {
                     if (!mGpsTraceList.reloadDataFile(n))     //  データファイル読み直す
                         count++
@@ -504,7 +498,6 @@ class GpsTraceListActivity : AppCompatActivity() {
      */
     fun gpxExport(pos: Int) {
         mSelectListPosition = getItemPos2DataListPos(pos)
-        Log.d(TAG,"gpxExport: "+mSelectListPosition+" "+lvDataList.selectedItemPosition)
         klib.folderSelectDialog(this, mGpsTraceFileFolder, iGpsExportOperation)
     }
 
@@ -522,7 +515,6 @@ class GpsTraceListActivity : AppCompatActivity() {
      * gxpFilePath      編集する項目のファイルパス
      */
     fun goGpsCsvEdit(gpsTraceFilePath: String) {
-        Log.d(TAG,"goGpsCsvEdit: "+gpsTraceFilePath)
         val intent = Intent(this, GpxEditActivity::class.java)
         intent.putExtra("GPSTRACELISTPATH", mGpsTraceListPath)
         intent.putExtra("GPSTRACEFILEPATH", gpsTraceFilePath)
@@ -549,7 +541,6 @@ class GpsTraceListActivity : AppCompatActivity() {
      */
     fun mapMove(coordinate: String) {
         if (0 < coordinate.length) {
-            Log.d(TAG,"mapMove: " + coordinate )
             if (0 < coordinate.length) {
                 val intent = Intent()
                 intent.putExtra("座標", coordinate)
@@ -630,19 +621,34 @@ class GpsTraceListActivity : AppCompatActivity() {
      * データ年、分類、グループデータをspinnerに登録
      */
     fun setSpinnerData(){
-        //  データの年をspinnerに登録
-        var yearAdapter = ArrayAdapter(this, R.layout.support_simple_spinner_dropdown_item,
-            mGpsTraceList.getYearList("すべて"))
-        spYear.adapter = yearAdapter
-        //  分類をspinnerに登録
-        var categoryAdapter = ArrayAdapter(this, R.layout.support_simple_spinner_dropdown_item,
-            mGpsTraceList.getCategoryList("すべて"))
-        spCategory.adapter = categoryAdapter
-        //  グループをspinnerに登録
-        var groupAdapter = ArrayAdapter(this, R.layout.support_simple_spinner_dropdown_item,
-            mGpsTraceList.getGroupList("すべて"))
-        spGroup.adapter = groupAdapter
+        //  選択値の取得
+        val yearItem = if (spYear.adapter == null) mGpsTraceList.mAllListName
+                        else spYear.selectedItem.toString()
+        val groupItem = if (spGroup.adapter == null) mGpsTraceList.mAllListName
+                        else spGroup.selectedItem.toString()
+        val categoryItem = if (spCategory.adapter == null) mGpsTraceList.mAllListName
+                        else spCategory.selectedItem.toString()
 
+        //  データの年をspinnerに登録
+        spYear.adapter = ArrayAdapter(this, R.layout.support_simple_spinner_dropdown_item,
+            mGpsTraceList.getYearList(mGpsTraceList.mAllListName))
+        //  グループをspinnerに登録
+        spGroup.adapter = ArrayAdapter(this, R.layout.support_simple_spinner_dropdown_item,
+            mGpsTraceList.getGroupList(mGpsTraceList.mAllListName))
+        //  分類をspinnerに登録
+        spCategory.adapter = ArrayAdapter(this, R.layout.support_simple_spinner_dropdown_item,
+            mGpsTraceList.getCategoryList(mGpsTraceList.mAllListName))
+
+        //  選択値を元に戻す
+        val yearPos = mGpsTraceList.getYearList(mGpsTraceList.mAllListName).indexOf(yearItem)
+        val groupPos = mGpsTraceList.getGroupList(mGpsTraceList.mAllListName).indexOf(groupItem)
+        val categoryPos = mGpsTraceList.getCategoryList(mGpsTraceList.mAllListName).indexOf(categoryItem)
+        if (0 <= yearPos)
+            spYear.setSelection(yearPos)
+        if (0 <= groupPos)
+            spGroup.setSelection(groupPos)
+        if (0 <= categoryPos)
+            spCategory.setSelection(categoryPos)
     }
 
     /**
@@ -650,8 +656,9 @@ class GpsTraceListActivity : AppCompatActivity() {
      */
     fun setDataList() {
         val year = spYear.selectedItem.toString()
-        val category = spCategory.selectedItem.toString()
         val group = spGroup.selectedItem.toString()
+        val category = spCategory.selectedItem.toString()
+
         if (mSelectList) {
             //  選択リスト
             var listTitleAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_checked,
