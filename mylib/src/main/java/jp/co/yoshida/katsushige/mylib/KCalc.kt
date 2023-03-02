@@ -1,5 +1,7 @@
 package jp.co.yoshida.katsushige.mylib
 
+import android.util.Log
+
 class KCalc {
     val TAG = "KCalc"
 
@@ -207,20 +209,21 @@ class KCalc {
 //                Log.d(TAG,"expression:"+i+" "+expList.get(i)+" "+success+" "+x+" "+ope);
                 //  数値の場合、前の演算子で計算する
                 if (success) {
+                    Log.d(TAG,"expression: "+i+" "+result+" "+ope+" "+x)
                     if (ope.compareTo("+") == 0) {          //  加算
-                        var res = express2(i, x, expList)       //  剰余が先にあれば計算しておく
+                        var res = express2(i, x, expList)   //  剰余が先にあれば計算しておく
                         i = res.n
                         result += res.x
                     } else if (ope.compareTo("-") == 0) {   //  減算
-                        var res = express2(i, x, expList)       //  剰余が先にあれば計算しておく
+                        var res = express2(i, x, expList)   //  剰余が先にあれば計算しておく
                         i = res.n
                         result -= res.x
                     } else if (ope.compareTo("*") == 0) {   //  乗算
-                        var res = express3(i, x, expList)       //  べき乗が先にあれば計算しておく
+                        var res = express3(i, x, expList)   //  べき乗が先にあれば計算しておく
                         i = res.n
                         result *= res.x
                     } else if (ope.compareTo("/") == 0) {   //  除算
-                        var res = express3(i, x, expList)       //  べき乗が先にあれば計算しておく
+                        var res = express3(i, x, expList)   //  べき乗が先にあれば計算しておく
                         i = res.n
                         if (x == 0.0) {
                             mError = true
@@ -229,7 +232,7 @@ class KCalc {
                         }
                         result /= res.x
                     } else if (ope.compareTo("%") == 0) {   //  剰余
-                        var res = express3(i, x, expList)       //  べき乗が先にあれば計算しておく
+                        var res = express3(i, x, expList)   //  べき乗が先にあれば計算しておく
                         i = res.n
                         if (x == 0.0) {
                             mError = true
@@ -238,9 +241,7 @@ class KCalc {
                         }
                         result %= res.x
                     } else if (ope.compareTo("^") == 0) {   //  累乗
-                        var res = express3(i, x, expList)       //  べき乗が先にあれば計算しておく
-                        i = res.n
-                        result = Math.pow(result, res.x)
+                        result = Math.pow(result, x)
                     } else {
                         if (0 <i) {
                             mError = true
@@ -270,46 +271,44 @@ class KCalc {
      * expList      計算式リスト
      * return       計算結果(結果の値と数値の可否判定)
      */
-    private fun express2(ii: Int, xx: Double, expList: List<String>): ExpressResult {
+    private fun express2(i: Int, x: Double, expList: List<String>): ExpressResult {
         var res = ExpressResult()
-        var i = ii
-        var x = xx
+        res.x = x
         res.n = i
-        if (i + 2 < expList.size) {
-            var y = expression(expList[i])
-            while (i + 2 < expList.size) {
-                var ope = expList[i+1]
-                var z = expression(expList[i+2])
+        if (res.n + 2 < expList.size) {
+            var y = expression(expList[res.n])
+            while (res.n + 2 < expList.size) {
+                var ope = expList[res.n + 1]
+                var z = expression(expList[res.n + 2])
+                Log.d(TAG,"express2: "+res.n+" "+y+" "+ope+" "+z)
                 if (ope.compareTo("*") == 0) {        //  掛け算
-                    res = express2(i+2, z, expList)
-                    x = y * res.x
+                    res = express3(res.n, z, expList)
+                    res.x = y * res.x
                 } else if (ope.compareTo("/") == 0) { // 割り算
-                    res = express2(i+2, z, expList)
+                    res = express3(res.n, z, expList)
                     if (res.x == 0.0) {
                         mError = true
                         mErrorMsg = "０割り"
                         return res
                     }
-                    x = y / res.x
+                    res.x = y / res.x
                 } else if (ope.compareTo("%") == 0) { //剰余
-                    res = express2(i+2, z, expList)
+                    res = express3(res.n, z, expList)
                     if (res.x == 0.0) {
                         mError = true
                         mErrorMsg = "０割り"
                         return res;
                     }
-                    x = y % res.x
+                    res.x = y % res.x
                 } else if (ope.compareTo("^") == 0) { //  累乗
-                    res = express3(i+2, z, expList)
-                    x = Math.pow(y, res.x);
+                    res.x = Math.pow(y, z);
                 } else {
                     break
                 }
-                y = x
-                i = res.n
+                y = res.x
+                res.n += 2
             }
         }
-        res.x = x;
         res.result = true
 
         return res
@@ -323,20 +322,25 @@ class KCalc {
      * expList      計算式リスト
      * return       計算結果(結果の値と数値の可否判定)
      */
-    private fun express3(i: Int, xx: Double, expList: List<String>): ExpressResult {
+    private fun express3(i: Int, x: Double, expList: List<String>): ExpressResult {
         var res = ExpressResult()
-        var x = xx
+        res.x = x
         res.n = i
-        if (i + 2 < expList.size) {
-            var y = expression(expList[i])
-            var ope = expList[i+1]
-            var z = expression(expList[i+2])
-            if (ope.compareTo("^") == 0) { //  累乗
-                res = express3(i+2, z, expList)
-                x = Math.pow(y, res.x)
+        if (res.n + 2 < expList.size) {
+            var y = expression(expList[res.n])
+            while (res.n + 2 < expList.size) {
+                var ope = expList[res.n + 1]
+                var z = expression(expList[res.n + 2])
+                Log.d(TAG,"express3: "+res.n+" "+y+" "+ope+" "+z)
+                if (ope.compareTo("^") == 0) { //  累乗
+                    res.x = Math.pow(y, z)
+                } else {
+                    break
+                }
+                y = res.x
+                res.n += 2
             }
         }
-        res.x = x
         res.result = true
 
         return res
