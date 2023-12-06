@@ -23,6 +23,7 @@ class GpsTraceList {
     var mErrorMessage = ""                          //  エラー時の内容
 
     var mDataList = mutableListOf<GpsTraceData>()   //  GPSリストデータ
+    var mFilterDataList = mutableListOf<GpsTraceData>()   //  GPSリストデータ
     var mGpsTraceListPath = ""                      //  リストデータのファイル保存パス
     var mGpsTraceFileFolder = ""                    //  トレースデータフォルダ
     var mDisp = true                                //  表示フラグ
@@ -78,14 +79,15 @@ class GpsTraceList {
         mErrorMessage = ""
         var fileList = klib.getFileList(mGpsTraceFileFolder, true, "*.csv")
         for (i in fileList.indices) {
-            var gpsTraceData = GpsTraceData()
             try {
-                gpsTraceData.mFilePath = fileList[i].absolutePath
-                gpsTraceData.loadGpsData(false)
-                if (null == mDataList.find { it.mFilePath.compareTo(gpsTraceData.mFilePath, true) == 0 })   //  ファイル重複チェック
+                if (null == mDataList.find { it.mFilePath.compareTo(fileList[i].absolutePath, true) == 0 }) {  //  ファイル重複チェック
+                    var gpsTraceData = GpsTraceData()
+                    gpsTraceData.mFilePath = fileList[i].absolutePath
+                    gpsTraceData.loadGpsData(false)
                     mDataList.add(gpsTraceData)
+                }
             } catch (e: Exception) {
-                mErrorMessage += gpsTraceData.mFilePath + " " + e.message + "\n"
+                mErrorMessage += fileList[i].absolutePath + " " + e.message + "\n"
 //                    Toast.makeText(mC, e.message, Toast.LENGTH_LONG).show()
             }
         }
@@ -174,33 +176,35 @@ class GpsTraceList {
     fun setVisible(selectList: List<Int>) {
         clearVisible()
         for (i in selectList.indices)
-            mDataList[selectList[i]].mVisible = true
+            mFilterDataList[selectList[i]].mVisible = true
     }
 
     /**
      * 指定項目を[ゴミ箱]に設定
+     * n            表示選択データNo
      */
     fun setTrashData(n: Int) {
-        if (0 <= n && n < mDataList.size)
-            mDataList[n].mGroup = mTrashGroup
+        if (0 <= n && n < mFilterDataList.size)
+            mFilterDataList[n].mGroup = mTrashGroup
     }
 
     /**
      * リストデータからグループを[ゴミ箱]に設定
+     * selectList       表示選択Noリスト
      */
     fun setTrashData(selectList: List<Int>) {
         for (i in selectList.indices)
-            mDataList[selectList[i]].mGroup = mTrashGroup
+            mFilterDataList[selectList[i]].mGroup = mTrashGroup
     }
 
     /**
-     * リストデータからグループのゴミ箱を解除
-     * selectList       選択リスト
+     * リストデータからグループのゴミ箱を解除(要グループ再設定)
+     * selectList       表示選択Noリスト
      */
     fun setUnTrashData(selectList: List<Int>) {
         for (i in selectList.indices)
-            if (mDataList[selectList[i]].mGroup.compareTo(mTrashGroup) == 0)
-                mDataList[selectList[i]].mGroup = ""
+            if (mFilterDataList[selectList[i]].mGroup.compareTo(mTrashGroup) == 0)
+                mFilterDataList[selectList[i]].mGroup = ""
     }
 
     /**
@@ -215,20 +219,20 @@ class GpsTraceList {
 
     /**
      * リストデータからグループを設定
-     * selectList       選択リスト
+     * selectList       表示選択Noリスト
      */
     fun setGroupData(selectList: List<Int>, group: String) {
         for (i in selectList.indices)
-            mDataList[selectList[i]].mGroup = group
+            mFilterDataList[selectList[i]].mGroup = group
     }
 
     /**
      * リストデータからデータファイルを含めて削除(gpxファイルは除く)
-     * firstTime        開始時間リスト
+     * selectList       表示選択データリスト
      */
-    fun removeDataFile(firstTimeList: List<String>) {
-        for (i in firstTimeList.indices) {
-            val n = findListTitleFirstTime(firstTimeList[i])
+    fun removeDataFile(selectList: List<GpsTraceData>) {
+        for (i in selectList.indices) {
+            val n = mDataList.indexOf(selectList[i])
             if (klib.getNameExt(mDataList[n].mFilePath).compareTo("gpx", true) != 0)
                 klib.removeFile(mDataList[n].mFilePath)
             mDataList.removeAt(n)
@@ -239,13 +243,29 @@ class GpsTraceList {
      * リストデータからゴミ箱のデータをファイルを含めて削除(gpxファイルは除く)
      * firstTime        開始時間リスト
      */
-    fun removeTrashDataFile(firstTimeList: List<String>) {
-        for (i in firstTimeList.indices) {
-            val n = findListTitleFirstTime(firstTimeList[i])
+    fun removeTrashDataFile(selectList: List<GpsTraceData>) {
+        for (i in selectList.indices) {
+            val n = mDataList.indexOf(selectList[i])
             if (klib.getNameExt(mDataList[n].mFilePath).compareTo("gpx", true) != 0 &&
                 mDataList[n].mGroup.compareTo(mTrashGroup) == 0)
                 klib.removeFile(mDataList[n].mFilePath)
             mDataList.removeAt(n)
+        }
+    }
+
+    /**
+     * データファイルの移動
+     * dataList     選択されたリストのNo
+     * moveFolder   移動先フォルダ
+     */
+    fun gpxFilesMove(dataList: List<Int>, moveFolder: String) {
+        klib.mkdir(moveFolder)
+        //  ファイル移動
+        for (gpsDataNo in dataList) {
+            var fileName = klib.getName(mFilterDataList[gpsDataNo].mFilePath)
+            var outPath = moveFolder + "/" + fileName
+            if (klib.moveFile(mFilterDataList[gpsDataNo].mFilePath, moveFolder))
+                mFilterDataList[gpsDataNo].mFilePath = outPath
         }
     }
 
@@ -270,10 +290,15 @@ class GpsTraceList {
     /**
      *  リストビューに表示するタイトルリストをつくる
      *  リストのソートとフィルタ処理をおこなう
-     *  return          タイトルリスト
+     *  year: String        年フィルタ
+     *  category: String,   分類フィルタ
+     *  group: String,      グループフィルタ
+     *  titleType: Int = 0, タイトル表示形式
+     *  pathOffset: Int = 0 保存フォルダのオフセット値
+     *  return              タイトルリスト
      */
-    fun getListTitleData(year: String, category: String, group: String): List<String> {
-        var titleList = mutableListOf<String>()
+    fun getListTitleData(year: String, category: String, group: String, titleType: Int = 0, pathOffset: Int = 0): List<String> {
+        Log.d(TAG,"getListTitleData: "+titleType+" "+pathOffset)
         //  ソート処理
         if (mDataListSortCending) {
             if (mDataListSortType == DATALISTSORTTYPE.DATE) {
@@ -297,13 +322,18 @@ class GpsTraceList {
             }
         }
         //  表示タイトル設定(フィルタ処理)
+        mFilterDataList.clear()
+        var titleList = mutableListOf<String>()
         for (gpsFileData in mDataList) {
             if ((year.compareTo(mAllListName) == 0 || gpsFileData.getYearStr().compareTo(year) == 0) &&
                 (category.compareTo(mAllListName) == 0 || gpsFileData.mCategory.compareTo(category) == 0) &&
                 ((group.compareTo(mAllListName) == 0 && gpsFileData.mGroup.compareTo(mTrashGroup) != 0)
                         || gpsFileData.mGroup.compareTo(group) == 0)) {
-                titleList.add(gpsFileData.getListTitle())
+                mFilterDataList.add(gpsFileData)
             }
+        }
+        for (gpsData in mFilterDataList) {
+            titleList.add(gpsData.getListTitle(titleType, pathOffset))
         }
         return titleList
     }
@@ -322,12 +352,27 @@ class GpsTraceList {
     }
 
     /**
+     * 対処恵項目のデータをデータファイルから更新する
+     * dis@List     選択された表示中のデータNoリスト
+     * return       更新データ数
+     */
+    fun reloadDataFiles(dispList: List<Int>): Int {
+        var count = 0
+        for(n in dispList) {
+            if (!reloadDataFile(n))     //  データファイル読み直す
+                count++
+        }
+        return count
+    }
+
+    /**
      * 対象項目のデータをデータファイルから更新する
      * データファイルがない場合は項目を削除
+     * dispNo           表示データ位置
      * return           更新の可否
      */
-    fun reloadDataFile(n: Int): Boolean {
-        var gpsData = mDataList[n]
+    fun reloadDataFile(dispNo: Int): Boolean {
+        var gpsData = mFilterDataList[dispNo]
         if (klib.existsFile(gpsData.mFilePath)) {
             val title = gpsData.mTitle
             val group = gpsData.mGroup
@@ -342,7 +387,7 @@ class GpsTraceList {
             gpsData.mLineColor = color
             return true
         } else {
-            mDataList.removeAt(n)
+            mDataList.removeAt(dispNo)
             return false
         }
     }
@@ -387,7 +432,37 @@ class GpsTraceList {
     }
 
     /**
+     * データファイルを結合する
+     * addDataNoList        表示リストのデータNoリスト
+     */
+    fun appendDataFile(addDataNoList: List<Int>) {
+        //  データの抽出
+        var dataList = mutableListOf<GpsTraceData>()
+        for (n in addDataNoList) {
+            dataList.add(mFilterDataList[n])
+        }
+        dataList.sortWith({ a, b -> (a.mFirstTime.time / 1000 - b.mFirstTime.time / 1000).toInt() })
+        //  データの結合
+        var gpsTraceData = GpsTraceData(dataList[0])
+        gpsTraceData.loadGpsTraceData()
+        for (n in 1..dataList.lastIndex) {
+            gpsTraceData.appendGpsTraceData(dataList[n].mFilePath)
+        }
+        gpsTraceData.mGpsTraceData.removeAt(0); //  データの重複回避のため1行目を削除
+        //  出力ファイル名の作成
+        var count = 0
+        var filePath = mGpsTraceFileFolder + "/" + klib.getFileNameWithoutExtension(dataList[0].mFilePath) + "(" + count + ").csv"
+        while (klib.existsFile(filePath)) {
+            count++
+            filePath = mGpsTraceFileFolder + "/" + klib.getFileNameWithoutExtension(dataList[0].mFilePath) + "(" + count + ").csv"
+        }
+        gpsTraceData.saveCsvTraceData(filePath)
+        getFileData()
+    }
+
+    /**
      * リストデータを取得する
+     * exist        ファイル有無の確認(true: ファイルがない場合登録しない)
      */
     fun loadListFile(exist: Boolean = false){
         mDataList.clear()
@@ -417,9 +492,10 @@ class GpsTraceList {
     /**
      * GPSデータ情報
      */
-    class GpsTraceData {
+    class GpsTraceData() {
         val TAG = "GpsTraceData"
 
+        var mGpsTraceData = mutableListOf<List<String>>()       //  GpsTraceData
         var mLocData = mutableListOf<PointD>()  //  位置座標データ
         var mLocationData = mutableListOf<Location>()   //  Locationデータ
         var mStepCountList = mutableListOf<Int>()   //  歩数データ
@@ -455,6 +531,28 @@ class GpsTraceList {
         }
 
         /**
+         * コンストラクタ GpsTraceDataのコピー
+         * gpsTraceData     GpsTracedata
+         */
+        constructor(gpsTraceData: GpsTraceData): this() {
+            mTitle = gpsTraceData.mTitle
+            mGroup = gpsTraceData.mGroup
+            mCategory = gpsTraceData.mCategory
+            mComment = gpsTraceData.mComment
+            mFilePath = gpsTraceData.mFilePath
+            mVisible = gpsTraceData.mVisible
+            mLineColor = gpsTraceData.mLineColor
+            mThickness = gpsTraceData.mThickness
+            mLocArea =gpsTraceData.mLocArea
+            mDistance = gpsTraceData.mDistance
+            mMinElevation = gpsTraceData.mMinElevation
+            mMaxElevation = gpsTraceData.mMaxElevation
+            mFirstTime = gpsTraceData.mFirstTime
+            mLastTime = gpsTraceData.mLastTime
+            mStepCount = gpsTraceData.mStepCount
+        }
+
+        /**
          * データの開始日時の年を取出す(xxxx年)
          * return           xxxx年
          */
@@ -483,16 +581,21 @@ class GpsTraceList {
         /**
          * 一覧リスト用タイトル
          */
-        fun getListTitle(): String {
+        fun getListTitle(titleType: Int = 0, pathOffset: Int = 0): String {
             var title = if (mVisible) "*" else " "
             title += getFirstTimeStr() + " "
             title += mTitle +"\n"
             title += "[" + mCategory + "]"
             title += "[" + mGroup + "] "
-            title += "%.2f km".format(mDistance)
-            title += "(" + klib.lap2String(mLastTime.time - mFirstTime.time) + ") "
-            title += "%.1f km/h".format(mDistance/(mLastTime.time - mFirstTime.time)*60*60*1000) + " "
-            title += "%.0f m".format(mMinElevation) + "-" + "%.0f m".format(mMaxElevation)
+            if (titleType== 1) {
+//                var folder = klib.getFolder(mFilePath)
+                title += mFilePath.substring(pathOffset)
+            } else {
+                title += "%.2f km".format(mDistance)
+                title += "(" + klib.lap2String(mLastTime.time - mFirstTime.time) + ") "
+                title += "%.1f km/h".format(mDistance/(mLastTime.time - mFirstTime.time)*60*60*1000) + " "
+                title += "%.0f m".format(mMinElevation) + "-" + "%.0f m".format(mMaxElevation)
+            }
             return title
         }
 
@@ -588,15 +691,90 @@ class GpsTraceList {
         }
 
         /**
+         * GpsTraceDataをString形式で読み込む
+         */
+        fun loadGpsTraceData() {
+            mGpsTraceData.clear()
+            appendGpsTraceData(mFilePath)
+        }
+
+        /**
+         * String形式のGpsTraceDataをクリア
+         */
+        fun clearGpsTraceData() {
+            mGpsTraceData.clear()
+        }
+
+        /**
+         * GpsTraceDataをString形式で追加読み込む
+         * filePath     データファイルパス
+         */
+        fun appendGpsTraceData(filePath: String) {
+            if (klib.existsFile(filePath)) {
+                if (klib.getNameExt(filePath).compareTo("csv", true) == 0) {
+                    loadCsvTraceData(filePath)
+                } else if (klib.getNameExt(filePath).compareTo("gpx", true) == 0) {
+                    loadGpxTraceData(filePath)
+                }
+            }
+        }
+
+        /**
+         * GpsTraceDataをString形式でCSV保存
+         * filePath     データファイルパス
+         */
+        fun saveCsvTraceData(filePath: String) {
+            klib.saveCsvData(filePath, mGpsFormat, mGpsTraceData)
+        }
+
+        /**
+         * CSV形式のGpsTraceDataをString形式で読み込む
+         * filePath     データファイルパス
+         */
+        fun loadCsvTraceData(filePath: String) {
+            var gpsTraceData = klib.loadCsvData(filePath, mGpsFormat)
+            for (data in gpsTraceData){
+                Log.d(TAG,"loadCsvTraceData: "+data)
+                mGpsTraceData.add(data)
+            }
+        }
+
+        /**
+         * GPXファイルをString形式のGpsTraceDataに変換して取り込む
+         * filePath     GPXファイルパス
+         */
+        fun loadGpxTraceData(filePath: String) {
+            var gpsReader = GpxReader(GpxReader.DATATYPE.gpxData)
+            if (0 < gpsReader.getGpxRead(filePath)) {
+                for (gpxData in gpsReader.mListGpsData) {
+                    //  "DateTime","Time","Latitude","Longtude","Altitude","Speed","Bearing","Accuracy","StepCount"
+                    var gpsData = mutableListOf<String>()
+                    gpsData.add(gpxData.mDate.toString())
+                    gpsData.add(gpxData.mLap.toString())
+                    gpsData.add(gpxData.mLatitude.toString())
+                    gpsData.add(gpxData.mLongitude.toString())
+                    gpsData.add(gpxData.mElevator.toString())
+                    gpsData.add(gpxData.mSpeed.toString())
+                    gpsData.add("")     //  Bearing(方位)
+                    gpsData.add("")     //  Accuracy (精度)
+                    gpsData.add("")     //  StepCount (歩数)
+                    mGpsTraceData.add(gpsData)
+                }
+            }
+        }
+
+        /**
          * GPSファイルの読込と情報設定
          * locsave      位置データを保存する
-         * locatioSave  Locationデータを出得する
+         * locatioSave  Locationデータを取得する
          */
         fun loadGpsData(locsave: Boolean = true, locationSave: Boolean = false) {
-            if (klib.getNameExt(mFilePath).compareTo("csv", true) == 0) {
-                loadCsvData(locsave, locationSave)
-            } else if (klib.getNameExt(mFilePath).compareTo("gpx", true) == 0) {
-                loadGpxData()
+            if (klib.existsFile(mFilePath)) {
+                if (klib.getNameExt(mFilePath).compareTo("csv", true) == 0) {
+                    loadCsvData(locsave, locationSave)
+                } else if (klib.getNameExt(mFilePath).compareTo("gpx", true) == 0) {
+                    loadGpxData()
+                }
             }
         }
 
@@ -625,7 +803,7 @@ class GpsTraceList {
 
         /**
          * GPS記録データの読込(GPS Serviceで出力されたCSVファイルの読込)、Locationデータとして取り込む
-         * locsave      位置データを保存する
+         * locsave      位置データリストにも保存する
          * locatioSave  Locationデータを出得する
          */
         fun loadCsvData(locsave: Boolean = true, locationSave: Boolean = false) {
