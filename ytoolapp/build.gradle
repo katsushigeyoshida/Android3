@@ -23,8 +23,9 @@ android {
     }
 
     buildFeatures {
-        viewBinding true
+        viewBinding = true
     }
+    namespace 'jp.co.yoshida.katsushige.ytoolapp'
 }
 
 dependencies {
