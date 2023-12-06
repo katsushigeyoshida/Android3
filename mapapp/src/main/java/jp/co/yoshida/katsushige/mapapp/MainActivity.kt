@@ -5,14 +5,23 @@ import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Rect
-import android.os.*
+import android.os.Build
+import android.os.Bundle
+import android.os.Environment
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.util.Size
 import android.view.Menu
 import android.view.MenuItem
 import android.view.MotionEvent
 import android.view.View
-import android.widget.*
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
+import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.Spinner
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
@@ -130,11 +139,11 @@ class MainActivity : AppCompatActivity() {
     lateinit var spColCount:Spinner
 
     //  GPS取得のタイマースレッド
-    val runnable = object : Runnable {
+    val GpsTraceRunnable = object : Runnable {
         override fun run() {
             mGpsTrace.loadGpsPointData()
             var bp = klib.coordinates2BaseMap(mGpsTrace.lastPosition())
-            Log.d(TAG, "runnable: " + bp.toString())
+//            Log.d(TAG, "runnable: " + bp.toString())
             if (bp.x != 0.5 || bp.y != 0.5) {
                 mMapData.setLocation(bp)        //  地図の中心に移動
                 mapDisp(mMapDataDownLoadMode)
@@ -256,6 +265,9 @@ class MainActivity : AppCompatActivity() {
         mGpsTraceList.mGpsTraceFileFolder = mGpsTraceFileFolder
         mGpsTraceList.loadListFile()
         klib.setStrPreferences(mGpsTraceListPath, "GpsTraceListPath", this)
+        //  GPSサービスが起動しているときは、GPSトレース表示のハンドラを開始
+        if (klib.isServiceRunning(this, GpsService::class.java))
+            handler.post(GpsTraceRunnable)
     }
 
     /**
@@ -263,24 +275,13 @@ class MainActivity : AppCompatActivity() {
      */
     override fun onStop() {
         Log.d(TAG,"onStop")
+        super.onStop()
         //  データの保存
-        mMapInfoData.saveMaoInfoData(mMapInfoDataPath)  //  地図データリストの保存
         mMapData.saveParameter()                        //  地図パラメータの保存
         klib.setStrPreferences(mMapDataDownLoadMode.name, "WebFileDownLoadMode", this)
-        mMapData.saveImageFileSet(mImageFileSetPath)    //  ダウンロードファイルリストの保存
-        mAreaData.saveAreaDataList()                    //  登録画面リストの保存
-        mMarkList.saveMarkFile(this)            //  マークリストの保存
-//        mGpxDataList.saveDataFile(this)             //  GPSデータリストの保存
-        mGpsTraceList.saveListFile()                    //  GPSトレースリストの保存
-
-        //  GPX変換が終わっていなければ処理待ちをおこなう
-        if (GpsTraceList.mGpxConvertOn) {
-            Log.d(TAG, "onStop : " + "GPX変換エキスポート中")
-            klib.messageDialog(this, "確認", "GPX変換中ですが終了しますか", iStopOperation)
-        } else {
-            Log.d(TAG, "onStop : " + "GPX変換終了")
-            super.onStop()
-        }
+//        mMapData.saveImageFileSet(mImageFileSetPath)    //  ダウンロードファイルリストの保存
+        mMapData.saveImageFileSet()                     //  ダウンロードファイルリストの保存
+        handler.removeCallbacks(GpsTraceRunnable)       //  GPSトレース表示のハンドラ(終了)
     }
 
     /**
@@ -292,6 +293,7 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
+    //  GPX変換中止処理
     var iStopOperation = Consumer<String> { s ->
         if (s.compareTo("OK") == 0) {
             GpsTraceList.mGpxConvertOn = false
@@ -547,10 +549,14 @@ class MainActivity : AppCompatActivity() {
     fun GpsServiceStart(cont: Boolean = false) {
         Log.d(TAG,"GpsServiceStartContinue: "+cont)
         if (!cont) {
+            //  新規の場合
+        }
+        if (!klib.isServiceRunning(this, GpsService::class.java)) {
+            //  GPSサービスが起動していない場合
             val intent = Intent(this, GpsService::class.java)
             startService(intent)
         }
-        handler.post(runnable)
+        handler.post(GpsTraceRunnable)              //  GPSトレース表示のハンドラ(開始)
     }
 
     /**
@@ -560,8 +566,9 @@ class MainActivity : AppCompatActivity() {
         Log.d(TAG,"GpsServiceEnd")
         val intent = Intent(this, GpsService::class.java)
         stopService(intent)
-        handler.removeCallbacks(runnable)
+        handler.removeCallbacks(GpsTraceRunnable)   //  GPSトレース表示のハンドラ(終了)
         if (save) {
+            //  ファイル名変更で保存
             mGpsTrace.moveGpsFile(mGpsTraceFileFolder)
         }
     }
@@ -613,10 +620,10 @@ class MainActivity : AppCompatActivity() {
         //  画像データ保存先フォルダ
         val extStrageDir = Environment.getExternalStorageDirectory()
         mBaseFolder = extStrageDir.absolutePath + "/" + Environment.DIRECTORY_DCIM + "/gsiMap/"
-        mImageFileSetPath = mBaseFolder + mImageFileSetPath
-//        loadImageFileSet(mImageFileSetPath)
         mMapData.mBaseFolder = mBaseFolder
-        mMapData.loadImageFileSet(mImageFileSetPath)
+//        mImageFileSetPath = mBaseFolder + mImageFileSetPath
+////        loadImageFileSet(mImageFileSetPath)
+//        mMapData.loadImageFileSet(mImageFileSetPath)
 
         //  位置画面データの読み込みと保存先フォルダ設定
         mAreaData.setSavePath(mDataFolder + "/" + mAreaDataListPath)
@@ -796,6 +803,13 @@ class MainActivity : AppCompatActivity() {
                             dialog, which ->
                         mGpsLocation = !mGpsLocation
                     })
+                    .setNeutralButton("継続", {
+                        dialog, which ->
+                        //  GPS ON
+                        btGpsOn.setBackgroundColor(Color.rgb(200, 50, 100))   //  赤(on)
+                        mGpsTrace.start(true)
+                        GpsServiceStart(true)
+                    })
                     .show()
             } else {
                 AlertDialog.Builder(this)
@@ -852,10 +866,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * 地図表示前の設定(初期化)
+     * 地図表示前の設定(初期化/切替)
      */
     fun mapInit() {
+        mMapData.saveImageFileSet()
         mMapData.normarized()
+        mMapData.loadImageFileSet()
         mMapData.setDateTime()
         mMapView.mDispDateTime = mMapData.mMapInfoData.mDispDateTime
         if (mMapData.mMapInfoData.isDateTimeData())
@@ -1129,29 +1145,29 @@ class MainActivity : AppCompatActivity() {
      *  データのない画像名も登録する
      *  path        保存ファイルパス
      */
-    fun saveImageFileSet(path: String) {
-        if (mImageFileSet.count() == 0)
-            return
-        var dataList = mutableListOf<String>()
-        for (data in mImageFileSet) {
-            dataList.add(data)
-        }
-        klib.saveTextData(path, dataList)
-    }
+//    fun saveImageFileSet(path: String) {
+//        if (mImageFileSet.count() == 0)
+//            return
+//        var dataList = mutableListOf<String>()
+//        for (data in mImageFileSet) {
+//            dataList.add(data)
+//        }
+//        klib.saveTextData(path, dataList)
+//    }
 
     /**
      *  ダウンロードした画像ファイルリストの取り込み
      *  path        ファイルパス
      */
-    fun loadImageFileSet(path: String) {
-        if (klib.existsFile(path)) {
-            var dataList = klib.loadTextData(path)
-            mImageFileSet.clear()
-            for (data in dataList) {
-                mImageFileSet.add(data)
-            }
-        }
-    }
+//    fun loadImageFileSet(path: String) {
+//        if (klib.existsFile(path)) {
+//            var dataList = klib.loadTextData(path)
+//            mImageFileSet.clear()
+//            for (data in dataList) {
+//                mImageFileSet.add(data)
+//            }
+//        }
+//    }
 
     /**
      *  ステータスバーの高さ
@@ -1287,6 +1303,7 @@ class MainActivity : AppCompatActivity() {
     var iInputOperation = Consumer<String> { s ->
         Toast.makeText(this, s, Toast.LENGTH_LONG).show()
         mAreaData.mAreaDataList.put(s, mMapData.getStringData())
+        mAreaData.saveAreaDataList()                    //  登録画面リストの保存
     }
 
     /**
@@ -1295,7 +1312,9 @@ class MainActivity : AppCompatActivity() {
     var iRemoveOperation = Consumer<String> { s ->
         Toast.makeText(this, s, Toast.LENGTH_LONG).show()
         mAreaData.mAreaDataList.remove(s)
+        mAreaData.saveAreaDataList()                    //  登録画面リストの保存
     }
+
     /**
      * マーク操作のメニュー表示
      */
@@ -1629,6 +1648,9 @@ class MainActivity : AppCompatActivity() {
         startActivityForResult(intent, REQUESTCODE_GPSTRACELIST)
     }
 
+    /**
+     * マークリストを開く
+     */
     fun goMarkList() {
         val intent = Intent(this, MarkListActivity::class.java)
         intent.putExtra("MARKLISTPATH", mDataFolder + "/" + mMarkListPath)
@@ -1638,6 +1660,9 @@ class MainActivity : AppCompatActivity() {
         startActivityForResult(intent, REQUESTCODE_MARKLIST)
     }
 
+    /**
+     * フォトギャラリーを起動してイメージファイルを選択する
+     */
     fun goPhotoGallery() {
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
