@@ -68,7 +68,7 @@ class GpxEditActivity : AppCompatActivity() {
             //  内部からの呼び出し
             mGpxDataListPath = intent.getStringExtra("GPSTRACELISTPATH").toString()
             mGpxFilePath = intent.getStringExtra("GPSTRACEFILEPATH").toString()
-            if (mGpxFilePath.length == 0)
+            if (mGpxFilePath.length == 0 && !klib.existsFile(mGpxFilePath))
                 mNewFile = true
         }
         Log.d(TAG, "onCreate: "+mGpxDataListPath+" "+mGpxFilePath)
