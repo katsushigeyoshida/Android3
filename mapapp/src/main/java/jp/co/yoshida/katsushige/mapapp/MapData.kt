@@ -58,6 +58,8 @@ class MapData(var context: Context, var mMapInfoData: MapInfoData) {
     val mImageFileSet = mutableSetOf<String>()          //  ダウンロードしたファイルリスト(Web上に存在しないファイルも登録)
     var mDateTimeFolder = ""                            //  日時フォルダ名
     var mDispMapPreDateTime = LocalDateTime.now()       //
+    val mImageFileSetName = "ImageFileSet.csv"          //  ダウンロードしたファイルリストのファイル名
+    var mImageFileSetPath = ""                          //  ダウンロードしたファイルリストfパス
 
     val klib = KLib()
 
@@ -123,12 +125,14 @@ class MapData(var context: Context, var mMapInfoData: MapInfoData) {
 
     /**
      *  クラスデータのチェック(正規化)
+     *  mMapTitleNum に合わせてデータを設定する
      */
     fun normarized(){
         mMapTitleNum = if (mMapTitleNum < 0 || mMapInfoData.mMapData.size <= mMapTitleNum) 0 else mMapTitleNum
         mMapInfoData.setMapTitleNum(mMapTitleNum)
         mMapTitle = mMapInfoData.mMapData[mMapTitleNum][1]
         mExt = mMapInfoData.mMapData[mMapTitleNum][2]
+        mImageFileSetPath = mBaseFolder + mMapTitle + "/" + mImageFileSetName;
         mZoom = Math.max(mZoom, 0)
         val maxColCount = getMaxColCount()
         mStart.x  = Math.min(Math.max(mStart.x, 0.0), maxColCount.toDouble())
@@ -143,6 +147,7 @@ class MapData(var context: Context, var mMapInfoData: MapInfoData) {
         mBaseMapOver = mMapInfoData.mMapData[mMapTitleNum][13].compareTo("true") == 0
         mDateTimeFolder = ""
         loadColorLegend()
+        Log.d(TAG,"normarized: "+mImageFileSetPath)
     }
 
     /**
@@ -497,6 +502,7 @@ class MapData(var context: Context, var mMapInfoData: MapInfoData) {
      *  path        保存ファイルパス
      */
     fun saveImageFileSet(path: String) {
+        Log.d(TAG,"saveImageFileSet2: "+mImageFileSet.count()+" "+path)
         if (mImageFileSet.count() == 0)
             return
         var dataList = mutableListOf<String>()
@@ -506,11 +512,17 @@ class MapData(var context: Context, var mMapInfoData: MapInfoData) {
         klib.saveTextData(path, dataList)
     }
 
+    fun saveImageFileSet(){
+        Log.d(TAG,"saveImageFileSet: "+mImageFileSetPath)
+        saveImageFileSet(mImageFileSetPath)
+    }
+
     /**
      *  ダウンロードした画像ファイルリストの取り込み
      *  path        ファイルパス
      */
     fun loadImageFileSet(path: String) {
+        Log.d(TAG,"loadImageFileSet2: "+path)
         if (klib.existsFile(path)) {
             var dataList = klib.loadTextData(path)
             mImageFileSet.clear()
@@ -518,6 +530,11 @@ class MapData(var context: Context, var mMapInfoData: MapInfoData) {
                 mImageFileSet.add(data)
             }
         }
+    }
+
+    fun loadImageFileSet() {
+        loadImageFileSet(mImageFileSetPath)
+        Log.d(TAG,"loadImageFileSet: "+mImageFileSet.count()+" "+mImageFileSetPath)
     }
 
     /**
