@@ -94,8 +94,8 @@ class GpsService : Service(), SensorEventListener {
         mOnUpdateLocation = OnUpdateLocation()      //  位置情報コールバックオブジェクトの生成
 
         //  GPSデータ保存パス
-        mGpsFilePath = klib.getPackageNameDirectory(this@GpsService) + "/" +mGpsFileName
-        klib.removeFile(mGpsFilePath)
+        mGpsFilePath = klib.getPackageNameDirectory(this@GpsService) + "/" + mGpsFileName
+//        klib.removeFile(mGpsFilePath)
         Log.d(TAG, "onCreate: GpsFilePath "+mGpsFilePath)
 
         //  歩数センサー
@@ -218,19 +218,18 @@ class GpsService : Service(), SensorEventListener {
 
     /**
      * 位置情報の追加保存
+     * ファイルが存在しない場合にはタイトルを追加語にデータを追加
      * path     保存ファイル名
      * buffer   保存データ
      */
     fun appendSaveData(path: String, buffer: String) {
         Log.d(TAG,"appendSaveData: "+path+" "+buffer)
-        if (klib.existsFile(path)) {
-            klib.writeFileDataAppend(path, "\n" + buffer)
-        } else {
+        if (!klib.existsFile(path)) {
             //  初回書き込み
             var title = "DateTime,Time,Latitude,Longtude,Altitude,Speed,Bearing,Accuracy,StepCount"
             klib.writeFileData(path, title)
-            klib.writeFileDataAppend(path, "\n" + buffer)
         }
+        klib.writeFileDataAppend(path, "\n" + buffer)
     }
 
     /**
